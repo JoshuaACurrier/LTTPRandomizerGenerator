@@ -1,0 +1,166 @@
+# LTTP Randomizer Generator
+
+A utility that generates randomized *A Link to the Past* ROMs using the [alttpr.com](https://alttpr.com) API. Available for **Windows 11** and **Android** (Retroid Pocket 5+, Ayn Thor, and other Android 11+ devices).
+
+> **You must supply your own legally-obtained ALttP base ROM.** The Japanese v1.0 "Zelda no Densetsu: Kamigami no Triforce" ROM is required (CRC32: `0x777AAC3F`).
+
+---
+
+## Features
+
+- All alttpr.com randomizer settings exposed as dropdowns
+- Named preset system — save your favourite settings with a custom name
+- 6 built-in presets: **Quick Run**, **Casual Boots**, **Keysanity**, **All Mix**, **Beginner**, **Swordless**
+- Auto-saves last-used settings between sessions
+- Generates a shareable seed permalink
+- Self-contained — no Python, PHP, or other runtimes required
+
+---
+
+## Download
+
+Get the latest release from the [Releases](../../releases) page:
+
+| Platform | File |
+|----------|------|
+| Windows 11 | `LTTPRandomizerGenerator.exe` |
+| Android | `app-release-unsigned.apk` |
+
+### Android Installation (Obtainium)
+
+1. Install [Obtainium](https://github.com/ImranR98/Obtainium)
+2. Add this repo URL: `https://github.com/JoshuaACurrier/LTTPRandomizerGenerator`
+3. Obtainium will detect new APK releases and notify you of updates
+
+Manual sideload: download the APK, enable *Install from unknown sources* in Android settings, then install.
+
+---
+
+## Usage
+
+1. **Select your base ROM** — the Japanese v1.0 ALttP ROM (`.sfc`, `.smc`, or `.rom`)
+2. **Select an output folder** where the randomized ROM will be saved
+3. **Pick a preset** or configure settings manually using the dropdowns
+4. Hit **Generate ROM**
+5. The app contacts alttpr.com, downloads the seed patch, applies it locally, and writes the output ROM
+6. A shareable seed permalink is shown — click it to open the seed page on alttpr.com
+
+---
+
+## Settings Reference
+
+| Setting | What it does |
+|---------|-------------|
+| **Glitches** | Logic glitches allowed (None → Major) |
+| **Item Placement** | How aggressively items are spread (Basic / Advanced) |
+| **Dungeon Items** | Whether dungeon keys/maps stay in their dungeon (Standard → Keysanity) |
+| **Accessibility** | Logic guarantee: can beat game / reach all locations / none |
+| **Goal** | Win condition (Defeat Ganon, Fast Ganon, All Dungeons, Pedestal) |
+| **Tower / Ganon Open** | Crystals required to enter Ganon's Tower / fight Ganon |
+| **World State** | Open, Standard, Inverted, or Retro |
+| **Entrance Shuffle** | Randomize overworld/dungeon entrances |
+| **Boss / Enemy Shuffle** | Randomize bosses or enemies |
+| **Hints** | NPC hint stones on/off |
+| **Weapons** | Randomized / Assured / Vanilla / Swordless |
+| **Item Pool** | Normal / Hard / Expert / Crowd Control |
+| **Item Functionality** | How powerful items are (Normal → Expert) |
+| **Spoiler Log** | Include a spoiler log in the seed |
+| **Pegasus Boots Start** | Start the game with Pegasus Boots in inventory |
+
+### Presets
+
+| Preset | Description |
+|--------|-------------|
+| Quick Run | Fast Ganon, 7/7 crystals, basic placement |
+| Casual Boots | Open world, start with Pegasus Boots |
+| Keysanity | All dungeon items (maps, compasses, keys, big keys) can appear anywhere |
+| All Mix | Crossed entrance shuffle, full boss/enemy shuffle, Keysanity |
+| Beginner | 100% location accessibility, hints on, no shuffle |
+| Swordless | No swords — must use alternative weapons throughout |
+
+---
+
+## Build from Source
+
+### Windows
+
+**Prerequisites:** .NET 8 SDK
+
+```bash
+cd windows
+dotnet build -c Debug          # development
+dotnet publish -c Release -r win-x64 --self-contained true \
+  -p:PublishSingleFile=true    # production EXE
+```
+
+Output: `windows/bin/Release/net8.0-windows/win-x64/publish/LTTPRandomizerGenerator.exe`
+
+### Android
+
+**Prerequisites:** Android Studio or Android SDK (API 34), JDK 17
+
+```bash
+cd android
+./gradlew assembleRelease
+```
+
+Output: `android/app/build/outputs/apk/release/app-release-unsigned.apk`
+
+> For a signed APK (required for newer Android versions to install without developer options), configure a keystore in `android/app/build.gradle` under `signingConfigs`.
+
+---
+
+## Releases (GitHub Actions)
+
+Push a tag matching `v*.*.*` to trigger automatic builds:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Both Windows EXE and Android APK are built and attached to the release automatically.
+
+---
+
+## Project Structure
+
+```
+windows/            WPF .NET 8 application
+  Models/           RandomizerSettings, RandomizerPreset
+  Services/         AlttprApiClient, BpsPatcher, RomValidator, PresetManager
+  Resources/        Dark theme styles
+  MainWindow.*      UI + ViewModel (MVVM-lite)
+
+android/            Native Kotlin Android application
+  app/src/main/
+    java/com/lttprandomizer/
+      AlttprApiClient.kt    HTTP calls to alttpr.com
+      BpsPatcher.kt         BPS patch + dict patch applicator
+      RomValidator.kt       CRC32 ROM validation
+      PresetManager.kt      SharedPreferences preset storage
+      MainActivity.kt       Single-activity UI
+
+.github/workflows/  GitHub Actions CI
+  build-windows.yml
+  build-android.yml
+```
+
+---
+
+## How It Works
+
+1. App sends your chosen settings to `POST https://alttpr.com/api/randomizer` (no ROM upload)
+2. API returns a seed hash + a URL to a BPS base patch + seed-specific byte patches
+3. App downloads the BPS patch and applies it to your local ROM
+4. Seed-specific patches (item placement, enemy placement, etc.) are applied on top
+5. SNES checksum is recalculated
+6. Output ROM is written to your chosen folder
+
+Your ROM is never sent to any server.
+
+---
+
+## Credits
+
+Seed generation powered by [alttpr.com](https://alttpr.com) — the official A Link to the Past Randomizer.

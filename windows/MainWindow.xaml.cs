@@ -1,0 +1,366 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Media;
+using LTTPRandomizerGenerator.Models;
+using LTTPRandomizerGenerator.Services;
+using Microsoft.Win32;
+
+namespace LTTPRandomizerGenerator
+{
+    public partial class MainWindow : Window, INotifyPropertyChanged
+    {
+        public MainWindow()
+        {
+            InitializeComponent();
+            DataContext = this;
+
+            // Add BoolToVis converter via code (avoids x:Static issues with resource dict)
+            Resources["BoolToVis"] = new BooleanToVisibilityConverter();
+
+            LoadPresets();
+            RestoreLastSettings();
+        }
+
+        // ── Observable properties ─────────────────────────────────────────────
+
+        private string _romPath = string.Empty;
+        public string RomPath
+        {
+            get => _romPath;
+            set { _romPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanGenerate)); }
+        }
+
+        private string _outputFolder = string.Empty;
+        public string OutputFolder
+        {
+            get => _outputFolder;
+            set { _outputFolder = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanGenerate)); }
+        }
+
+        private bool _isGenerating;
+        public bool IsGenerating
+        {
+            get => _isGenerating;
+            set { _isGenerating = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanGenerate)); }
+        }
+
+        private string _statusMessage = string.Empty;
+        public string StatusMessage
+        {
+            get => _statusMessage;
+            set { _statusMessage = value; OnPropertyChanged(); }
+        }
+
+        private Brush _statusColor = Brushes.Gray;
+        public Brush StatusColor
+        {
+            get => _statusColor;
+            set { _statusColor = value; OnPropertyChanged(); }
+        }
+
+        private string _seedPermalink = string.Empty;
+        public string SeedPermalink
+        {
+            get => _seedPermalink;
+            set { _seedPermalink = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasSeedLink)); }
+        }
+
+        public bool HasSeedLink => !string.IsNullOrEmpty(SeedPermalink);
+
+        private string _newPresetName = string.Empty;
+        public string NewPresetName
+        {
+            get => _newPresetName;
+            set { _newPresetName = value; OnPropertyChanged(); }
+        }
+
+        public bool CanGenerate =>
+            !IsGenerating &&
+            !string.IsNullOrWhiteSpace(RomPath) &&
+            !string.IsNullOrWhiteSpace(OutputFolder);
+
+        // ── Preset state ──────────────────────────────────────────────────────
+
+        public ObservableCollection<RandomizerPreset> AllPresets { get; } = new();
+
+        private RandomizerPreset? _selectedPreset;
+        public RandomizerPreset? SelectedPreset
+        {
+            get => _selectedPreset;
+            set { _selectedPreset = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanDeletePreset)); }
+        }
+
+        public bool CanDeletePreset => SelectedPreset is { IsBuiltIn: false };
+
+        // ── Settings rows (drives the XAML ItemsControl) ─────────────────────
+
+        public ObservableCollection<SettingRow> SettingRows { get; } = new();
+
+        private RandomizerSettings CurrentSettings()
+        {
+            var s = new RandomizerSettings();
+            foreach (var row in SettingRows)
+            {
+                if (row.SelectedOption is null) continue;
+                string v = row.SelectedOption.ApiValue;
+                switch (row.FieldKey)
+                {
+                    case "glitches":             s.Glitches            = v; break;
+                    case "item_placement":       s.ItemPlacement        = v; break;
+                    case "dungeon_items":        s.DungeonItems         = v; break;
+                    case "accessibility":        s.Accessibility        = v; break;
+                    case "goal":                 s.Goal                 = v; break;
+                    case "tower_open":           s.TowerOpen            = v; break;
+                    case "ganon_open":           s.GanonOpen            = v; break;
+                    case "world_state":          s.WorldState           = v; break;
+                    case "entrance_shuffle":     s.EntranceShuffle      = v; break;
+                    case "boss_shuffle":         s.BossShuffle          = v; break;
+                    case "enemy_shuffle":        s.EnemyShuffle         = v; break;
+                    case "hints":                s.Hints                = v; break;
+                    case "weapons":              s.Weapons              = v; break;
+                    case "item_pool":            s.ItemPool             = v; break;
+                    case "item_functionality":   s.ItemFunctionality    = v; break;
+                    case "spoilers":             s.Spoilers             = v; break;
+                    case "pegasus_boots":
+                        s.StartingEquipment = v == "on" ? ["PegasusBoots"] : [];
+                        break;
+                }
+            }
+            return s;
+        }
+
+        private void ApplySettingsToRows(RandomizerSettings s)
+        {
+            SetRow("glitches",           s.Glitches);
+            SetRow("item_placement",     s.ItemPlacement);
+            SetRow("dungeon_items",      s.DungeonItems);
+            SetRow("accessibility",      s.Accessibility);
+            SetRow("goal",               s.Goal);
+            SetRow("tower_open",         s.TowerOpen);
+            SetRow("ganon_open",         s.GanonOpen);
+            SetRow("world_state",        s.WorldState);
+            SetRow("entrance_shuffle",   s.EntranceShuffle);
+            SetRow("boss_shuffle",       s.BossShuffle);
+            SetRow("enemy_shuffle",      s.EnemyShuffle);
+            SetRow("hints",              s.Hints);
+            SetRow("weapons",            s.Weapons);
+            SetRow("item_pool",          s.ItemPool);
+            SetRow("item_functionality", s.ItemFunctionality);
+            SetRow("spoilers",           s.Spoilers);
+            SetRow("pegasus_boots",      s.StartingEquipment.Contains("PegasusBoots") ? "on" : "off");
+        }
+
+        private void SetRow(string key, string apiValue)
+        {
+            var row = SettingRows.FirstOrDefault(r => r.FieldKey == key);
+            if (row is null) return;
+            row.SelectedOption = row.Options.FirstOrDefault(o => o.ApiValue == apiValue)
+                               ?? row.Options.FirstOrDefault();
+        }
+
+        private void BuildSettingRows()
+        {
+            SettingRows.Clear();
+            SettingRows.Add(new("glitches",           "Glitches",                 SettingsOptions.Glitches));
+            SettingRows.Add(new("item_placement",     "Item Placement",           SettingsOptions.ItemPlacement));
+            SettingRows.Add(new("dungeon_items",      "Dungeon Items",            SettingsOptions.DungeonItems));
+            SettingRows.Add(new("accessibility",      "Accessibility",            SettingsOptions.Accessibility));
+            SettingRows.Add(new("goal",               "Goal",                     SettingsOptions.Goal));
+            SettingRows.Add(new("tower_open",         "Tower Open (crystals)",    SettingsOptions.CrystalCount));
+            SettingRows.Add(new("ganon_open",         "Ganon Open (crystals)",    SettingsOptions.CrystalCount));
+            SettingRows.Add(new("world_state",        "World State",              SettingsOptions.WorldState));
+            SettingRows.Add(new("entrance_shuffle",   "Entrance Shuffle",         SettingsOptions.EntranceShuffle));
+            SettingRows.Add(new("boss_shuffle",       "Boss Shuffle",             SettingsOptions.BossShuffle));
+            SettingRows.Add(new("enemy_shuffle",      "Enemy Shuffle",            SettingsOptions.EnemyShuffle));
+            SettingRows.Add(new("hints",              "Hints",                    SettingsOptions.Hints));
+            SettingRows.Add(new("weapons",            "Weapons",                  SettingsOptions.Weapons));
+            SettingRows.Add(new("item_pool",          "Item Pool",                SettingsOptions.ItemPool));
+            SettingRows.Add(new("item_functionality", "Item Functionality",       SettingsOptions.ItemFunctionality));
+            SettingRows.Add(new("spoilers",           "Spoiler Log",              SettingsOptions.Spoilers));
+            SettingRows.Add(new("pegasus_boots",      "Pegasus Boots Start",      SettingsOptions.PegasusBoots));
+        }
+
+        // ── Initialization ────────────────────────────────────────────────────
+
+        private void LoadPresets()
+        {
+            AllPresets.Clear();
+            foreach (var p in BuiltInPresets.All)
+                AllPresets.Add(p);
+            foreach (var p in PresetManager.LoadUserPresets())
+                AllPresets.Add(p);
+
+            BuildSettingRows();
+        }
+
+        private void RestoreLastSettings()
+        {
+            var last = PresetManager.LoadLastSettings();
+            ApplySettingsToRows(last);
+        }
+
+        // ── Event handlers ────────────────────────────────────────────────────
+
+        private void BrowseRom_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new OpenFileDialog
+            {
+                Title = "Select ALttP Base ROM",
+                Filter = "SNES ROM files (*.sfc;*.smc;*.rom)|*.sfc;*.smc;*.rom|All files (*.*)|*.*",
+            };
+            if (dlg.ShowDialog() == true) RomPath = dlg.FileName;
+        }
+
+        private void BrowseOutput_Click(object sender, RoutedEventArgs e)
+        {
+            // FolderBrowserDialog not available in WPF by default; use OpenFileDialog trick
+            var dlg = new OpenFileDialog
+            {
+                Title = "Select Output Folder (pick any file in it, or type a path)",
+                ValidateNames = false,
+                CheckFileExists = false,
+                FileName = "Select Folder",
+            };
+            if (dlg.ShowDialog() == true)
+                OutputFolder = Path.GetDirectoryName(dlg.FileName) ?? string.Empty;
+        }
+
+        private void PresetCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (SelectedPreset is null) return;
+            ApplySettingsToRows(SelectedPreset.Settings);
+            NewPresetName = SelectedPreset.IsBuiltIn ? string.Empty : SelectedPreset.Name;
+        }
+
+        private void SavePreset_Click(object sender, RoutedEventArgs e)
+        {
+            string name = NewPresetName.Trim();
+            string? err = PresetManager.SavePreset(name, CurrentSettings());
+            if (err is not null) { ShowStatus(err, isError: true); return; }
+
+            // Refresh list
+            LoadPresets();
+            SelectedPreset = AllPresets.FirstOrDefault(p => p.Name == name);
+            ShowStatus($"Preset \"{name}\" saved.", isError: false);
+        }
+
+        private void DeletePreset_Click(object sender, RoutedEventArgs e)
+        {
+            if (SelectedPreset is null) return;
+            string name = SelectedPreset.Name;
+            if (MessageBox.Show($"Delete preset \"{name}\"?", "Confirm",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+
+            string? err = PresetManager.DeletePreset(name);
+            if (err is not null) { ShowStatus(err, isError: true); return; }
+            LoadPresets();
+            ShowStatus($"Preset \"{name}\" deleted.", isError: false);
+        }
+
+        private CancellationTokenSource? _cts;
+
+        private async void Generate_Click(object sender, RoutedEventArgs e)
+        {
+            IsGenerating = true;
+            SeedPermalink = string.Empty;
+            _cts = new CancellationTokenSource();
+
+            try
+            {
+                var settings = CurrentSettings();
+                PresetManager.SaveLastSettings(settings);
+
+                string? romErr = RomValidator.Validate(RomPath, out byte[] romBytes);
+                if (romErr is not null) { ShowStatus(romErr, isError: true); return; }
+
+                var progress = new Progress<string>(msg => ShowStatus(msg, isError: false));
+                var seed = await AlttprApiClient.GenerateAsync(settings, progress, _cts.Token);
+                if (seed is null) return;
+
+                ShowStatus("Applying patches...", isError: false);
+                byte[] output = await Task.Run(() =>
+                    BpsPatcher.Apply(romBytes, seed.BpsPatchBytes, seed.DictionaryPatches, seed.RomSizeMb),
+                    _cts.Token);
+
+                string outFile = Path.Combine(OutputFolder, $"lttp_rand_{seed.Hash}.sfc");
+                await File.WriteAllBytesAsync(outFile, output, _cts.Token);
+
+                SeedPermalink = seed.Permalink;
+                ShowStatus($"Done! Saved to: {outFile}", isError: false);
+                ShowStatus($"Seed hash: {seed.Hash}   |   {SeedPermalink}", isError: false);
+            }
+            catch (OperationCanceledException)
+            {
+                ShowStatus("Cancelled.", isError: false);
+            }
+            catch (Exception ex)
+            {
+                ShowStatus($"Error: {ex.Message}", isError: true);
+            }
+            finally
+            {
+                IsGenerating = false;
+                _cts?.Dispose();
+                _cts = null;
+            }
+        }
+
+        private void SeedLink_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (!string.IsNullOrEmpty(SeedPermalink))
+                Process.Start(new ProcessStartInfo(SeedPermalink) { UseShellExecute = true });
+        }
+
+        private void ShowStatus(string message, bool isError)
+        {
+            StatusMessage = message;
+            StatusColor = isError
+                ? new SolidColorBrush(Color.FromRgb(0xFF, 0x6B, 0x6B))
+                : new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xCC));
+        }
+
+        // ── INotifyPropertyChanged ────────────────────────────────────────────
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged([CallerMemberName] string? name = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+
+    // ── SettingRow helper (one row in the settings grid) ─────────────────────
+
+    public class SettingRow : INotifyPropertyChanged
+    {
+        public string FieldKey { get; }
+        public string Label { get; }
+        public DropdownOption[] Options { get; }
+
+        private DropdownOption? _selectedOption;
+        public DropdownOption? SelectedOption
+        {
+            get => _selectedOption;
+            set { _selectedOption = value; OnPropertyChanged(); }
+        }
+
+        public SettingRow(string fieldKey, string label, DropdownOption[] options)
+        {
+            FieldKey = fieldKey;
+            Label = label;
+            Options = options;
+            _selectedOption = options.FirstOrDefault();
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged([CallerMemberName] string? name = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+}

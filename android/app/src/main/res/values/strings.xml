@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LTTP Randomizer Generator</string>
+    <string name="browse_rom">Browse ROM</string>
+    <string name="browse_output">Browse Output</string>
+    <string name="generate">Generate ROM</string>
+    <string name="save_preset">Save</string>
+    <string name="delete_preset">Delete</string>
+    <string name="preset_name_hint">Preset name…</string>
+    <string name="rom_path_hint">Select ALttP base ROM…</string>
+    <string name="output_path_hint">Select output folder…</string>
+</resources>

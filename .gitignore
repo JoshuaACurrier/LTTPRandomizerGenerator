@@ -1,0 +1,17 @@
+# Windows WPF
+windows/bin/
+windows/obj/
+windows/*.user
+
+# Android
+android/.gradle/
+android/local.properties
+android/app/build/
+android/.idea/
+android/*.iml
+android/app/*.iml
+
+# General
+.DS_Store
+*.log
+Thumbs.db
