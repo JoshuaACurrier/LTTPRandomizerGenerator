@@ -78,8 +78,7 @@
 
             <TextBox   Grid.Column="2" x:Name="PresetNameBox" Width="140" Margin="6,0,0,0"
                        Text="{Binding NewPresetName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                       VerticalAlignment="Center"
-                       xml:space="preserve"> </TextBox>
+                       VerticalAlignment="Center"/>
 
             <Button    Grid.Column="3" Content="Save" Margin="4,0,0,0"
                        Style="{StaticResource SecondaryButton}"

@@ -61,7 +61,6 @@ namespace LTTPRandomizerGenerator.Services
             pos += (int)metaLen; // skip metadata string
 
             byte[] output = new byte[targetSize];
-            int srcPos  = 0;
             int outPos  = 0;
             int cpySrc  = 0; // SOURCE_COPY relative cursor
             int cpyOut  = 0; // TARGET_COPY relative cursor
