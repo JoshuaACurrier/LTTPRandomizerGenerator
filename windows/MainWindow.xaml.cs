@@ -25,9 +25,6 @@ namespace LTTPRandomizerGenerator
             InitializeComponent();
             DataContext = this;
 
-            // Add BoolToVis converter via code (avoids x:Static issues with resource dict)
-            Resources["BoolToVis"] = new BooleanToVisibilityConverter();
-
             LoadPresets();
             RestoreLastSettings();
         }

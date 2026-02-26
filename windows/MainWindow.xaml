@@ -7,6 +7,10 @@
         WindowStartupLocation="CenterScreen"
         Icon="Resources/icon.ico">
 
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- header -->
