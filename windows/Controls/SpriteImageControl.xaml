@@ -1,0 +1,77 @@
+<UserControl x:Class="LTTPRandomizerGenerator.Controls.SpriteImageControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Grid anchors the dark background, the animated triforce, and the sprite image in the same cell.
+        The triforce is shown while the image is downloading; the code-behind collapses it on load.
+    -->
+    <Grid Width="64" Height="80">
+        <Border Background="#0E0E18" CornerRadius="4"/>
+
+        <!--
+            Triforce made of three WPF Paths.
+            StrokeDashArray="60" with StrokeDashOffset animated 60→0 produces the "drawing outline" effect.
+            Each triangle starts 0.5s after the previous for a cascading trace.
+            AutoReverse="True" draws then un-draws, looping forever.
+        -->
+        <Canvas x:Name="TriforceCanvas"
+                Width="40" Height="34"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Canvas.Triggers>
+                <EventTrigger RoutedEvent="Canvas.Loaded">
+                    <BeginStoryboard>
+                        <Storyboard RepeatBehavior="Forever">
+                            <!-- Top triangle traces first -->
+                            <DoubleAnimation
+                                Storyboard.TargetName="TopPath"
+                                Storyboard.TargetProperty="StrokeDashOffset"
+                                From="60" To="0" Duration="0:0:1"
+                                AutoReverse="True"
+                                BeginTime="0:0:0"/>
+                            <!-- Bottom-left traces second -->
+                            <DoubleAnimation
+                                Storyboard.TargetName="BLPath"
+                                Storyboard.TargetProperty="StrokeDashOffset"
+                                From="60" To="0" Duration="0:0:1"
+                                AutoReverse="True"
+                                BeginTime="0:0:0.5"/>
+                            <!-- Bottom-right traces last -->
+                            <DoubleAnimation
+                                Storyboard.TargetName="BRPath"
+                                Storyboard.TargetProperty="StrokeDashOffset"
+                                From="60" To="0" Duration="0:0:1"
+                                AutoReverse="True"
+                                BeginTime="0:0:1.0"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Canvas.Triggers>
+
+            <Path x:Name="TopPath"
+                  Stroke="#DAA520" StrokeThickness="1.5"
+                  Fill="Transparent"
+                  StrokeDashArray="60" StrokeDashOffset="60"
+                  Data="M 10,17 L 30,17 L 20,0 Z"/>
+
+            <Path x:Name="BLPath"
+                  Stroke="#DAA520" StrokeThickness="1.5"
+                  Fill="Transparent"
+                  StrokeDashArray="60" StrokeDashOffset="60"
+                  Data="M 0,34 L 20,34 L 10,17 Z"/>
+
+            <Path x:Name="BRPath"
+                  Stroke="#DAA520" StrokeThickness="1.5"
+                  Fill="Transparent"
+                  StrokeDashArray="60" StrokeDashOffset="60"
+                  Data="M 20,34 L 40,34 L 30,17 Z"/>
+        </Canvas>
+
+        <!-- Actual sprite image — Source is set by code-behind after download -->
+        <Image x:Name="SpriteImage"
+               Width="64" Height="64"
+               Stretch="Uniform"
+               RenderOptions.BitmapScalingMode="NearestNeighbor"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"/>
+    </Grid>
+</UserControl>

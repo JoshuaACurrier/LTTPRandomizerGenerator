@@ -132,6 +132,50 @@ namespace LTTPRandomizerGenerator
 
         public string CustomizationToggleLabel => IsCustomizationExpanded ? "▲ CUSTOMIZATION" : "▶ CUSTOMIZATION";
 
+        // ── Sprite selection ──────────────────────────────────────────────────
+
+        private string _spritePath = string.Empty;
+        public string SpritePath
+        {
+            get => _spritePath;
+            set
+            {
+                _spritePath = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SpriteDisplayName));
+                OnPropertyChanged(nameof(IsRandomSprite));
+                OnPropertyChanged(nameof(RandomGlyph));
+                CustomizationManager.Save(CurrentCustomization());
+            }
+        }
+
+        public string SpriteDisplayName => _spritePath switch
+        {
+            SpriteBrowserWindow.RandomAllSentinel       => "Random (any sprite)",
+            SpriteBrowserWindow.RandomFavoritesSentinel => "Random (from favorites)",
+            "" or null                                  => "Default (Link)",
+            _                                           => Path.GetFileNameWithoutExtension(_spritePath)
+        };
+
+        public bool IsRandomSprite =>
+            _spritePath == SpriteBrowserWindow.RandomAllSentinel ||
+            _spritePath == SpriteBrowserWindow.RandomFavoritesSentinel;
+
+        public string RandomGlyph =>
+            _spritePath == SpriteBrowserWindow.RandomFavoritesSentinel ? "?★" : "?";
+
+        private string _spritePreviewUrl = string.Empty;
+        public string SpritePreviewUrl
+        {
+            get => _spritePreviewUrl;
+            set { _spritePreviewUrl = value; OnPropertyChanged(); OnPropertyChanged(nameof(EffectiveSpritePreviewUrl)); }
+        }
+
+        public string EffectiveSpritePreviewUrl =>
+            !string.IsNullOrEmpty(_spritePreviewUrl)
+                ? _spritePreviewUrl
+                : SpriteBrowserWindow.DefaultLinkPreviewFallbackUrl;
+
         // ── Settings rows (drives the XAML ItemsControl) ─────────────────────
 
         public ObservableCollection<SettingRow> SettingRows { get; } = new();
@@ -235,7 +279,7 @@ namespace LTTPRandomizerGenerator
 
         private CustomizationSettings CurrentCustomization()
         {
-            var c = new CustomizationSettings();
+            var c = new CustomizationSettings { SpritePath = _spritePath, SpritePreviewUrl = _spritePreviewUrl };
             foreach (var row in CustomizationRows)
             {
                 if (row.SelectedOption is null) continue;
@@ -323,6 +367,12 @@ namespace LTTPRandomizerGenerator
         {
             var c = CustomizationManager.Load();
             ApplyCustomizationToRows(c);
+            _spritePath = c.SpritePath ?? string.Empty;
+            _spritePreviewUrl = c.SpritePreviewUrl ?? string.Empty;
+            OnPropertyChanged(nameof(SpritePath));
+            OnPropertyChanged(nameof(SpriteDisplayName));
+            OnPropertyChanged(nameof(SpritePreviewUrl));
+            OnPropertyChanged(nameof(EffectiveSpritePreviewUrl));
         }
 
         // ── Event handlers ────────────────────────────────────────────────────
@@ -362,6 +412,35 @@ namespace LTTPRandomizerGenerator
 
         private void ToggleCustomization_Click(object sender, MouseButtonEventArgs e)
             => IsCustomizationExpanded = !IsCustomizationExpanded;
+
+        private void BrowseSprite_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new SpriteBrowserWindow { Owner = this };
+            if (window.ShowDialog() != true) return;
+            if (window.SelectedIsDefault)
+            {
+                SpritePath = string.Empty;
+                SpritePreviewUrl = string.Empty;
+            }
+            else if (window.SelectedSpritePath == SpriteBrowserWindow.RandomAllSentinel ||
+                     window.SelectedSpritePath == SpriteBrowserWindow.RandomFavoritesSentinel)
+            {
+                SpritePath = window.SelectedSpritePath!;
+                SpritePreviewUrl = string.Empty; // no preview — it's a surprise
+            }
+            else
+            {
+                SpritePath = window.SelectedSpritePath ?? string.Empty;
+                SpritePreviewUrl = window.SelectedSpritePreviewUrl ?? string.Empty;
+            }
+            CustomizationManager.Save(CurrentCustomization());
+        }
+
+        private void ClearSprite_Click(object sender, RoutedEventArgs e)
+        {
+            SpritePath = string.Empty;
+            SpritePreviewUrl = string.Empty;
+        }
 
         private void ToggleSettings_Click(object sender, MouseButtonEventArgs e)
             => IsSettingsExpanded = !IsSettingsExpanded;
@@ -427,6 +506,22 @@ namespace LTTPRandomizerGenerator
                 string outFile = Path.Combine(OutputFolder, $"lttp_rand_{seed.Hash}.sfc");
                 await File.WriteAllBytesAsync(outFile, output, _cts.Token);
 
+                if (!string.IsNullOrEmpty(SpritePath))
+                {
+                    ShowStatus("Applying sprite...", isError: false);
+                    string? spriteErr;
+                    if (IsRandomSprite)
+                    {
+                        bool favsOnly = SpritePath == SpriteBrowserWindow.RandomFavoritesSentinel;
+                        spriteErr = await PickRandomSpriteAsync(favsOnly, outFile, _cts.Token);
+                    }
+                    else
+                    {
+                        spriteErr = await Task.Run(() => SpriteApplier.Apply(SpritePath, outFile), _cts.Token);
+                    }
+                    if (spriteErr is not null) { ShowStatus($"Sprite error: {spriteErr}", isError: true); return; }
+                }
+
                 SeedPermalink = seed.Permalink;
                 ShowStatus($"Done! Saved to: {outFile}", isError: false);
                 ShowStatus($"Seed hash: {seed.Hash}   |   {SeedPermalink}", isError: false);
@@ -444,6 +539,73 @@ namespace LTTPRandomizerGenerator
                 IsGenerating = false;
                 _cts?.Dispose();
                 _cts = null;
+            }
+        }
+
+        // ── Random sprite resolution ──────────────────────────────────────────
+
+        private static readonly System.Net.Http.HttpClient _randomHttp =
+            new() { Timeout = TimeSpan.FromSeconds(30) };
+
+        private static readonly System.Text.Json.JsonSerializerOptions _jsonOpts =
+            new() { PropertyNameCaseInsensitive = true };
+
+        /// <summary>
+        /// Picks a random sprite from the cached list (or fetches from network),
+        /// downloads it to the sprite cache if needed, and applies it to <paramref name="romPath"/>.
+        /// Returns null on success, or an error string.
+        /// </summary>
+        private async Task<string?> PickRandomSpriteAsync(bool favoritesOnly, string romPath, CancellationToken ct)
+        {
+            try
+            {
+                List<Models.SpriteEntry>? sprites;
+                if (File.Exists(SpriteBrowserWindow.SpritesListCachePath))
+                {
+                    var json = await File.ReadAllTextAsync(SpriteBrowserWindow.SpritesListCachePath, ct);
+                    sprites = System.Text.Json.JsonSerializer.Deserialize<List<Models.SpriteEntry>>(json, _jsonOpts);
+                }
+                else
+                {
+                    var json = await _randomHttp.GetStringAsync("https://alttpr.com/sprites", ct);
+                    sprites = System.Text.Json.JsonSerializer.Deserialize<List<Models.SpriteEntry>>(json, _jsonOpts);
+                }
+
+                if (sprites is null || sprites.Count == 0)
+                    return "No sprites available for random selection.";
+
+                List<Models.SpriteEntry> pool = sprites;
+                if (favoritesOnly)
+                {
+                    var favs = Services.FavoritesManager.Load();
+                    pool = sprites.Where(s => favs.Contains(s.Name)).ToList();
+                    if (pool.Count == 0)
+                        return "No favorites found. Add favorites in the sprite browser first.";
+                }
+
+                var picked = pool[Random.Shared.Next(pool.Count)];
+
+                var cacheDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "LTTPRandomizerGenerator", "SpriteCache");
+                Directory.CreateDirectory(cacheDir);
+
+                var safeName = string.Concat(picked.Name.Split(Path.GetInvalidFileNameChars()));
+                var localPath = Path.Combine(cacheDir, safeName + ".zspr");
+
+                if (!File.Exists(localPath))
+                {
+                    ShowStatus($"Downloading random sprite…", isError: false);
+                    var data = await _randomHttp.GetByteArrayAsync(picked.File, ct);
+                    await File.WriteAllBytesAsync(localPath, data, ct);
+                }
+
+                return await Task.Run(() => Services.SpriteApplier.Apply(localPath, romPath), ct);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                return $"Random sprite failed: {ex.Message}";
             }
         }
 

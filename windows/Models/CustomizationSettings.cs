@@ -11,6 +11,8 @@ namespace LTTPRandomizerGenerator.Models
         public string HeartColor     { get; set; } = "red";
         public string MenuSpeed      { get; set; } = "normal";
         public string QuickSwap      { get; set; } = "off";
+        public string SpritePath       { get; set; } = string.Empty;
+        public string SpritePreviewUrl { get; set; } = string.Empty;
     }
 
     public static class CustomizationOptions
