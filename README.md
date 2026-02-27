@@ -45,7 +45,7 @@ Get the latest release from the [Releases](../../releases) page:
 | Platform | File |
 |----------|------|
 | Windows 11 | `LTTPRandomizerGenerator.exe` |
-| Android | `app-release-unsigned.apk` |
+| Android | `LTTPRandomizerGenerator.apk` |
 
 ### Android Installation (Obtainium)
 
