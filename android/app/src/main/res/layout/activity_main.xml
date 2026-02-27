@@ -34,7 +34,7 @@
             android:layout_width="match_parent" android:layout_height="wrap_content">
             <TextView android:id="@+id/romPathText"
                 android:hint="@string/rom_path_hint" android:textColor="#E0E0F0"
-                android:hintTextColor="#555568" android:background="#2A2A3E"
+                android:textColorHint="#555568" android:background="#2A2A3E"
                 android:padding="8dp" android:layout_weight="1"
                 android:layout_width="0dp" android:layout_height="wrap_content"/>
             <Button android:id="@+id/browseRomBtn" android:text="@string/browse_rom"
@@ -51,7 +51,7 @@
             android:layout_width="match_parent" android:layout_height="wrap_content">
             <TextView android:id="@+id/outputPathText"
                 android:hint="@string/output_path_hint" android:textColor="#E0E0F0"
-                android:hintTextColor="#555568" android:background="#2A2A3E"
+                android:textColorHint="#555568" android:background="#2A2A3E"
                 android:padding="8dp" android:layout_weight="1"
                 android:layout_width="0dp" android:layout_height="wrap_content"/>
             <Button android:id="@+id/browseOutputBtn" android:text="@string/browse_output"
@@ -85,7 +85,7 @@
             android:layout_width="match_parent" android:layout_height="wrap_content">
             <EditText android:id="@+id/presetNameEdit"
                 android:hint="@string/preset_name_hint" android:textColor="#E0E0F0"
-                android:hintTextColor="#555568" android:background="#2A2A3E"
+                android:textColorHint="#555568" android:background="#2A2A3E"
                 android:padding="8dp" android:layout_weight="1"
                 android:layout_width="0dp" android:layout_height="wrap_content"/>
             <Button android:id="@+id/savePresetBtn" android:text="@string/save_preset"
@@ -150,7 +150,7 @@
             android:layout_width="match_parent" android:layout_height="wrap_content"/>
         <TextView android:id="@+id/seedLinkText"
             android:textColor="#6C63FF" android:visibility="gone"
-            android:textDecorationLine="underline"
+
             android:layout_marginTop="4dp"
             android:layout_width="match_parent" android:layout_height="wrap_content"/>
 

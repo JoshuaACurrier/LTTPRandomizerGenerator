@@ -74,6 +74,12 @@ class MainActivity : AppCompatActivity() {
         tryMatchPreset()
     }
 
+    override fun onPause() {
+        super.onPause()
+        PresetManager.saveLastSettings(this, currentSettings())
+        PresetManager.saveCustomization(this, currentCustomization())
+    }
+
     // ── Setup ─────────────────────────────────────────────────────────────────
 
     private fun buildSettingRows() {

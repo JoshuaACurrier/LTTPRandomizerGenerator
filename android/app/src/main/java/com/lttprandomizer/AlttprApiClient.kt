@@ -76,7 +76,9 @@ object AlttprApiClient {
 
         onProgress("Downloading base patch…")
         val bpsBytes = if (hashInfo.bpsLocation.isNotBlank()) {
-            http.newCall(Request.Builder().url(hashInfo.bpsLocation).build())
+            val bpsUrl = if (hashInfo.bpsLocation.startsWith("http")) hashInfo.bpsLocation
+                         else "$BASE${hashInfo.bpsLocation}"
+            http.newCall(Request.Builder().url(bpsUrl).build())
                 .execute().use { resp ->
                     if (!resp.isSuccessful)
                         throw IOException("Failed to download BPS patch: ${resp.code}")
