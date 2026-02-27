@@ -12,3 +12,7 @@
 -dontwarn okio.**
 -keep class okhttp3.** { *; }
 -keep interface okhttp3.** { *; }
+
+# Coil
+-dontwarn coil.**
+-keep class coil.** { *; }

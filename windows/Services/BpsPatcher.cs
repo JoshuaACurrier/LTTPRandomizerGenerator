@@ -26,7 +26,7 @@ namespace LTTPRandomizerGenerator.Services
             byte[] rom = bpsPatch.Length > 0 ? ApplyBps(sourceRom, bpsPatch) : (byte[])sourceRom.Clone();
             rom = ExpandIfNeeded(rom, targetSizeMb);
             ApplyDictPatches(rom, dictPatches);
-            WriteChecksum(rom);
+            RomUtils.WriteChecksum(rom);
             return rom;
         }
 
@@ -146,25 +146,6 @@ namespace LTTPRandomizerGenerator.Services
                         rom[offset + i] = (byte)values[i];
                 }
             }
-        }
-
-        /// <summary>
-        /// Recalculates and writes the SNES HiROM checksum at 0x7FDC–0x7FDF.
-        /// </summary>
-        private static void WriteChecksum(byte[] rom)
-        {
-            // Zero out existing checksum fields before summing
-            rom[0x7FDC] = rom[0x7FDD] = rom[0x7FDE] = rom[0x7FDF] = 0;
-
-            uint sum = 0;
-            foreach (byte b in rom) sum += b;
-            ushort checksum  = (ushort)(sum & 0xFFFF);
-            ushort complement = (ushort)(checksum ^ 0xFFFF);
-
-            rom[0x7FDC] = (byte)(complement & 0xFF);
-            rom[0x7FDD] = (byte)(complement >> 8);
-            rom[0x7FDE] = (byte)(checksum & 0xFF);
-            rom[0x7FDF] = (byte)(checksum >> 8);
         }
 
         private static uint Crc32(byte[] data, int offset, int length)

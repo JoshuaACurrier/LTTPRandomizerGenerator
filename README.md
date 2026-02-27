@@ -21,30 +21,20 @@ A utility that generates randomized *A Link to the Past* ROMs using the [alttpr.
 - **Menu Speed** — Half, Normal, Double, Triple, Quad, Instant
 - **Quick Swap** — toggle item swap without going to the menu
 
-### Sprite Browser *(Windows only — Android coming soon)*
+### Sprite Browser
 - Browse 600+ community-created Link sprites from [alttpr.com](https://alttpr.com)
 - Search by name or author; star favorites that pin to the top
-- Sprite list and all preview images cached to disk — browser works offline after first load
-- **Random All** (**?**) — a surprise sprite is picked at generate time from the full list
-- **Random Favorites** (**?★**) — same, but only from your starred sprites
-- Selecting the default "Link" card resets to the original sprite
+- Sprite list and preview images cached to disk — browser works offline after first load
+- **Random All** — a surprise sprite is picked at generate time from the full list
+- **Random Favorites** — same, but only from your starred sprites
+- Sprite preview shown on the main screen after selection (Android)
+- Selecting Default (Link) resets to the original sprite
 
 ### General
+- Full feature parity across Windows and Android
 - Self-contained — no Python, PHP, or other runtimes required
+- ROM path and output folder remembered across sessions
 - Your ROM is never sent to any server
-
----
-
-## Platform Comparison
-
-| Feature | Windows | Android |
-|---------|:-------:|:-------:|
-| All randomizer settings | ✓ | ✓ |
-| Preset system (6 built-in + custom) | ✓ | ✓ |
-| Cosmetic customization | ✓ | ✓ |
-| Sprite browser (600+ sprites) | ✓ | — |
-| Sprite favorites & offline cache | ✓ | — |
-| Random sprite (All / Favorites) | ✓ | — |
 
 ---
 
@@ -72,7 +62,7 @@ Manual sideload: download the APK, enable *Install from unknown sources* in Andr
 1. **Select your base ROM** — the Japanese v1.0 ALttP ROM (`.sfc`, `.smc`, or `.rom`)
 2. **Select an output folder** where the randomized ROM will be saved
 3. **Pick a preset** or configure settings manually using the dropdowns
-4. *(Optional)* Expand **CUSTOMIZATION** to change cosmetics or pick a sprite *(Windows)*
+4. *(Optional)* Change cosmetics under **CUSTOMIZATION**, or pick a sprite from the **SPRITE** section
 5. Hit **Generate ROM**
 6. The app contacts alttpr.com, downloads the seed patch, applies it locally, and writes the output ROM
 7. A shareable seed permalink is shown — click it to open the seed page on alttpr.com
@@ -166,7 +156,7 @@ Both Windows EXE and Android APK are built and attached to the release automatic
 3. App downloads the BPS patch and applies it to your local ROM
 4. Seed-specific patches (item placement, enemy placement, etc.) are applied on top
 5. Cosmetic patches are applied (heart color, menu speed, etc.)
-6. Sprite is injected if selected *(Windows)*
+6. Sprite is injected if selected
 7. SNES checksum is recalculated
 8. Output ROM is written to your chosen folder
 
@@ -177,3 +167,13 @@ Your ROM is never sent to any server.
 ## Credits
 
 Seed generation powered by [alttpr.com](https://alttpr.com) — the official A Link to the Past Randomizer.
+
+---
+
+## Legal Disclaimer
+
+This project is an independent, fan-made utility and is not affiliated with, endorsed by, or sponsored by Nintendo Co., Ltd., its subsidiaries, or any of its licensees. *The Legend of Zelda: A Link to the Past* is a registered trademark of Nintendo.
+
+This software does not contain, distribute, or host any copyrighted ROM data, game assets, sprites, or other Nintendo intellectual property. Users must supply their own legally-obtained copy of the base ROM. The application functions solely as a patch generator — it sends user-selected settings to the [alttpr.com](https://alttpr.com) API, receives patch data, and applies those patches locally to the user's own ROM file. No ROM data is ever uploaded or transmitted.
+
+All community-created sprites displayed in the sprite browser are fan-made works hosted by and sourced from [alttpr.com](https://alttpr.com). They are not official Nintendo assets.

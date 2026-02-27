@@ -12,7 +12,7 @@
 
         <!-- Header -->
         <TextView
-            android:text="LTTP Randomizer Generator"
+            android:text="@string/app_title"
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="#6C63FF"
@@ -20,7 +20,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
         <TextView
-            android:text="Generate a randomized ALttP ROM via alttpr.com"
+            android:text="@string/app_subtitle"
             android:textSize="12sp"
             android:textColor="#888899"
             android:layout_marginBottom="16dp"
@@ -28,7 +28,7 @@
             android:layout_height="wrap_content"/>
 
         <!-- ROM picker -->
-        <TextView android:text="Base ROM" android:textColor="#B0B0CC"
+        <TextView android:text="@string/base_rom_label" android:textColor="#B0B0CC"
             android:layout_width="wrap_content" android:layout_height="wrap_content"/>
         <LinearLayout android:orientation="horizontal" android:layout_marginTop="4dp"
             android:layout_width="match_parent" android:layout_height="wrap_content">
@@ -44,7 +44,7 @@
         </LinearLayout>
 
         <!-- Output picker -->
-        <TextView android:text="Output Folder" android:textColor="#B0B0CC"
+        <TextView android:text="@string/output_folder_label" android:textColor="#B0B0CC"
             android:layout_marginTop="12dp"
             android:layout_width="wrap_content" android:layout_height="wrap_content"/>
         <LinearLayout android:orientation="horizontal" android:layout_marginTop="4dp"
@@ -64,8 +64,22 @@
         <View android:background="#3A3A55" android:layout_marginVertical="16dp"
             android:layout_width="match_parent" android:layout_height="1dp"/>
 
+        <!-- Sprite section (always visible) -->
+        <TextView android:text="@string/sprite_section_label" android:textColor="#6C63FF"
+            android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.1"
+            android:layout_marginBottom="8dp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <LinearLayout android:id="@+id/spriteContainer"
+            android:orientation="vertical"
+            android:layout_marginBottom="8dp"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
+        <!-- Divider -->
+        <View android:background="#3A3A55" android:layout_marginVertical="8dp"
+            android:layout_width="match_parent" android:layout_height="1dp"/>
+
         <!-- Preset row -->
-        <TextView android:text="PRESET" android:textColor="#6C63FF"
+        <TextView android:text="@string/preset_section_label" android:textColor="#6C63FF"
             android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.1"
             android:layout_width="wrap_content" android:layout_height="wrap_content"/>
         <Spinner android:id="@+id/presetSpinner"
@@ -73,7 +87,7 @@
             android:layout_marginTop="4dp"
             android:layout_width="match_parent" android:layout_height="wrap_content"/>
         <TextView android:id="@+id/unsavedText"
-            android:text="Unsaved"
+            android:text="@string/unsaved_label"
             android:textColor="#888899"
             android:textStyle="italic"
             android:visibility="gone"
@@ -104,7 +118,7 @@
 
         <!-- Customization (dynamically populated) -->
         <TextView android:id="@+id/customizationToggle"
-            android:text="▶ CUSTOMIZATION"
+            android:text="@string/customization_toggle_collapsed"
             android:textColor="#6C63FF"
             android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.1"
             android:layout_marginBottom="8dp"
@@ -121,7 +135,7 @@
 
         <!-- Settings (dynamically populated) -->
         <TextView android:id="@+id/settingsToggle"
-            android:text="▶ RANDOMIZER SETTINGS"
+            android:text="@string/settings_toggle_collapsed"
             android:textColor="#6C63FF"
             android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.1"
             android:layout_marginBottom="8dp"

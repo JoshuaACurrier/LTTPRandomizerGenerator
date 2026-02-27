@@ -2,8 +2,6 @@ package com.lttprandomizer
 
 import android.content.Context
 import android.net.Uri
-import java.util.zip.CRC32
-
 object RomValidator {
     private const val EXPECTED_SIZE = 1_048_576L  // 1 MB, headerless
     private const val COPIER_HEADER_SIZE = 512

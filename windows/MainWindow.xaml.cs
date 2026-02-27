@@ -31,12 +31,16 @@ namespace LTTPRandomizerGenerator
             RestoreCustomization();
             _initialized = true;
             TryMatchPreset();
+
+            if (PresetManager.LastLoadHadError)
+                ShowStatus("Some saved settings were corrupted and reset to defaults.", isError: true);
         }
 
         // ── Preset matching state ─────────────────────────────────────────────
 
         private bool _suppressPresetApply = false;
         private bool _initialized = false;
+        private List<string> _cachedPresetJsons = new();
 
         // ── Observable properties ─────────────────────────────────────────────
 
@@ -248,6 +252,7 @@ namespace LTTPRandomizerGenerator
 
         private void BuildSettingRows()
         {
+            foreach (var row in SettingRows) row.PropertyChanged -= OnSettingRowChanged;
             SettingRows.Clear();
             SettingRows.Add(new("glitches",           "Glitches",                 SettingsOptions.Glitches));
             SettingRows.Add(new("item_placement",     "Item Placement",           SettingsOptions.ItemPlacement));
@@ -313,6 +318,7 @@ namespace LTTPRandomizerGenerator
 
         private void BuildCustomizationRows()
         {
+            foreach (var row in CustomizationRows) row.PropertyChanged -= OnCustomizationRowChanged;
             CustomizationRows.Clear();
             CustomizationRows.Add(new("heart_beep",  "Heart Beep Speed", CustomizationOptions.HeartBeepSpeed));
             CustomizationRows.Add(new("heart_color", "Heart Color",       CustomizationOptions.HeartColor));
@@ -330,10 +336,9 @@ namespace LTTPRandomizerGenerator
         {
             if (!_initialized || _suppressPresetApply) return;
             string currentJson = System.Text.Json.JsonSerializer.Serialize(CurrentSettings());
-            RandomizerPreset? match = AllPresets.FirstOrDefault(p =>
-                System.Text.Json.JsonSerializer.Serialize(p.Settings) == currentJson);
+            int matchIdx = _cachedPresetJsons.IndexOf(currentJson);
             _suppressPresetApply = true;
-            SelectedPreset = match;
+            SelectedPreset = matchIdx >= 0 ? AllPresets[matchIdx] : null;
             _suppressPresetApply = false;
         }
 
@@ -346,6 +351,10 @@ namespace LTTPRandomizerGenerator
                 AllPresets.Add(p);
             foreach (var p in PresetManager.LoadUserPresets())
                 AllPresets.Add(p);
+
+            _cachedPresetJsons = AllPresets
+                .Select(p => System.Text.Json.JsonSerializer.Serialize(p.Settings))
+                .ToList();
 
             BuildSettingRows();
         }
@@ -493,7 +502,7 @@ namespace LTTPRandomizerGenerator
 
                 var progress = new Progress<string>(msg => ShowStatus(msg, isError: false));
                 var seed = await AlttprApiClient.GenerateAsync(settings, progress, _cts.Token);
-                if (seed is null) return;
+                if (seed is null) { ShowStatus("Generation failed: no response from API.", isError: true); return; }
 
                 ShowStatus("Applying patches...", isError: false);
                 var customization = CurrentCustomization();

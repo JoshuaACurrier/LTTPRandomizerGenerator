@@ -4,6 +4,7 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import android.view.View
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
@@ -13,8 +14,10 @@ import com.lttprandomizer.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import coil.Coil
+import coil.ImageLoader
+import coil.request.ImageRequest
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -22,9 +25,14 @@ class MainActivity : AppCompatActivity() {
     private var romUri: Uri? = null
     private var outputUri: Uri? = null
     private var lastSeedPermalink: String? = null
+    private var spritePath: String = ""
+    private var spritePreviewUrl: String = ""
+    private var spriteNameText: TextView? = null
+    private var spritePreviewImage: ImageView? = null
 
     // All presets = built-ins + user presets (rebuilt on load)
     private val allPresets = mutableListOf<RandomizerPreset>()
+    private var cachedPresetJsons = listOf<String>()
     private val settingRows = mutableListOf<SettingRowModel>()
     private val customizationRows = mutableListOf<SettingRowModel>()
 
@@ -35,8 +43,6 @@ class MainActivity : AppCompatActivity() {
     private var settingsExpanded = false
     private var customizationExpanded = false
 
-    private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
-
     // ── File pickers ─────────────────────────────────────────────────────────
 
     private val pickRom = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -45,6 +51,7 @@ class MainActivity : AppCompatActivity() {
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             binding.romPathText.text = uri.lastPathSegment ?: uri.toString()
             updateGenerateButton()
+            PresetManager.savePaths(this, romUri?.toString(), outputUri?.toString())
         }
     }
 
@@ -55,6 +62,24 @@ class MainActivity : AppCompatActivity() {
                 uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             binding.outputPathText.text = uri.lastPathSegment ?: uri.toString()
             updateGenerateButton()
+            PresetManager.savePaths(this, romUri?.toString(), outputUri?.toString())
+        }
+    }
+
+    private val pickSprite = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val data = result.data ?: return@registerForActivityResult
+            when {
+                data.getBooleanExtra(SpriteBrowserActivity.EXTRA_IS_DEFAULT, false) -> {
+                    spritePath = ""
+                    spritePreviewUrl = ""
+                }
+                else -> {
+                    spritePath = data.getStringExtra(SpriteBrowserActivity.EXTRA_SPRITE_PATH) ?: ""
+                    spritePreviewUrl = data.getStringExtra(SpriteBrowserActivity.EXTRA_SPRITE_PREVIEW) ?: ""
+                }
+            }
+            updateSpriteRow()
         }
     }
 
@@ -65,13 +90,24 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        Coil.setImageLoader(
+            ImageLoader.Builder(this)
+                .okHttpClient(AlttprApiClient.http)
+                .build()
+        )
+
         buildSettingRows()
         buildCustomizationRows()
         loadPresets()
         restoreLastSettings()
         restoreCustomization()
+        restorePaths()
         setupUi()
         tryMatchPreset()
+
+        if (PresetManager.lastLoadHadError) {
+            Toast.makeText(this, "Some saved settings were corrupted and reset to defaults.", Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onPause() {
@@ -118,6 +154,25 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private fun inflateRows(container: android.widget.LinearLayout, rows: List<SettingRowModel>, onChanged: (() -> Unit)? = null) {
+        rows.forEach { row ->
+            val rowView = layoutInflater.inflate(R.layout.row_setting, container, false)
+            rowView.findViewById<TextView>(R.id.settingLabel).text = row.label
+            val spinner = rowView.findViewById<Spinner>(R.id.settingSpinner)
+            spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, row.options)
+            spinner.setSelection(row.selectedIndex, false)
+            spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                    row.selectedIndex = pos
+                    onChanged?.invoke()
+                }
+                override fun onNothingSelected(p: AdapterView<*>?) {}
+            }
+            row.spinnerRef = spinner
+            container.addView(rowView)
+        }
+    }
+
     private fun setupUi() {
         // ROM / output pickers
         binding.browseRomBtn.setOnClickListener { pickRom.launch(arrayOf("*/*")) }
@@ -125,53 +180,43 @@ class MainActivity : AppCompatActivity() {
 
         // Settings rows — inflate with saved indices, then attach listeners
         suppressPresetApply = true
-        settingRows.forEach { row ->
-            val rowView = layoutInflater.inflate(R.layout.row_setting, binding.settingsContainer, false)
-            rowView.findViewById<TextView>(R.id.settingLabel).text = row.label
-            val spinner = rowView.findViewById<Spinner>(R.id.settingSpinner)
-            spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, row.options)
-            spinner.setSelection(row.selectedIndex, false)
-            spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
-                    row.selectedIndex = pos
-                    tryMatchPreset()
-                }
-                override fun onNothingSelected(p: AdapterView<*>?) {}
-            }
-            row.spinnerRef = spinner
-            binding.settingsContainer.addView(rowView)
-        }
+        inflateRows(binding.settingsContainer, settingRows) { tryMatchPreset() }
         suppressPresetApply = false
 
         // Customization rows — inflate with saved indices, then attach listeners
-        customizationRows.forEach { row ->
-            val rowView = layoutInflater.inflate(R.layout.row_setting, binding.customizationContainer, false)
-            rowView.findViewById<TextView>(R.id.settingLabel).text = row.label
-            val spinner = rowView.findViewById<Spinner>(R.id.settingSpinner)
-            spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, row.options)
-            spinner.setSelection(row.selectedIndex, false)
-            spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
-                    row.selectedIndex = pos
-                }
-                override fun onNothingSelected(p: AdapterView<*>?) {}
-            }
-            row.spinnerRef = spinner
-            binding.customizationContainer.addView(rowView)
+        inflateRows(binding.customizationContainer, customizationRows)
+
+        // Sprite row — inflated into the always-visible sprite section
+        val spriteRow = layoutInflater.inflate(R.layout.row_sprite, binding.spriteContainer, false)
+        spriteNameText = spriteRow.findViewById(R.id.spriteNameText)
+        spritePreviewImage = spriteRow.findViewById(R.id.spritePreviewImage)
+        spriteRow.findViewById<Button>(R.id.browseSpriteBtn).setOnClickListener {
+            pickSprite.launch(Intent(this, SpriteBrowserActivity::class.java))
         }
+        spriteRow.findViewById<Button>(R.id.clearSpriteBtn).setOnClickListener {
+            spritePath = ""
+            spritePreviewUrl = ""
+            updateSpriteRow()
+        }
+        binding.spriteContainer.addView(spriteRow)
+        updateSpriteRow()
 
         // Customization toggle
         binding.customizationToggle.setOnClickListener {
             customizationExpanded = !customizationExpanded
             binding.customizationContainer.visibility = if (customizationExpanded) View.VISIBLE else View.GONE
-            binding.customizationToggle.text = if (customizationExpanded) "▲ CUSTOMIZATION" else "▶ CUSTOMIZATION"
+            binding.customizationToggle.text = getString(
+                if (customizationExpanded) R.string.customization_toggle_expanded else R.string.customization_toggle_collapsed
+            )
         }
 
         // Settings toggle
         binding.settingsToggle.setOnClickListener {
             settingsExpanded = !settingsExpanded
             binding.settingsContainer.visibility = if (settingsExpanded) View.VISIBLE else View.GONE
-            binding.settingsToggle.text = if (settingsExpanded) "▲ RANDOMIZER SETTINGS" else "▶ RANDOMIZER SETTINGS"
+            binding.settingsToggle.text = getString(
+                if (settingsExpanded) R.string.settings_toggle_expanded else R.string.settings_toggle_collapsed
+            )
         }
 
         // Preset spinner
@@ -231,6 +276,7 @@ class MainActivity : AppCompatActivity() {
         allPresets.clear()
         allPresets.addAll(BuiltInPresets.all)
         allPresets.addAll(PresetManager.loadUserPresets(this))
+        cachedPresetJsons = allPresets.map { AlttprApiClient.json.encodeToString(it.settings) }
         suppressPresetApply = true
         refreshPresetSpinner()
         suppressPresetApply = false
@@ -256,30 +302,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applySettings(s: RandomizerSettings) {
-        setRow("glitches",           s.glitches)
-        setRow("item_placement",     s.itemPlacement)
-        setRow("dungeon_items",      s.dungeonItems)
-        setRow("accessibility",      s.accessibility)
-        setRow("goal",               s.goal)
-        setRow("tower_open",         s.crystals.tower)
-        setRow("ganon_open",         s.crystals.ganon)
-        setRow("world_state",        s.mode)
-        setRow("entrance_shuffle",   s.entrances)
-        setRow("boss_shuffle",       s.enemizer.bossShuffle)
-        setRow("enemy_shuffle",      s.enemizer.enemyShuffle)
-        setRow("enemy_damage",       s.enemizer.enemyDamage)
-        setRow("enemy_health",       s.enemizer.enemyHealth)
-        setRow("pot_shuffle",        s.enemizer.potShuffle)
-        setRow("hints",              s.hints)
-        setRow("weapons",            s.weapons)
-        setRow("item_pool",          s.item.pool)
-        setRow("item_functionality", s.item.functionality)
-        setRow("spoilers",           s.spoilers)
-        setRow("pegasus_boots",      if (s.pseudoboots) "on" else "off")
+        setRowIn(settingRows, "glitches",           s.glitches)
+        setRowIn(settingRows, "item_placement",     s.itemPlacement)
+        setRowIn(settingRows, "dungeon_items",      s.dungeonItems)
+        setRowIn(settingRows, "accessibility",      s.accessibility)
+        setRowIn(settingRows, "goal",               s.goal)
+        setRowIn(settingRows, "tower_open",         s.crystals.tower)
+        setRowIn(settingRows, "ganon_open",         s.crystals.ganon)
+        setRowIn(settingRows, "world_state",        s.mode)
+        setRowIn(settingRows, "entrance_shuffle",   s.entrances)
+        setRowIn(settingRows, "boss_shuffle",       s.enemizer.bossShuffle)
+        setRowIn(settingRows, "enemy_shuffle",      s.enemizer.enemyShuffle)
+        setRowIn(settingRows, "enemy_damage",       s.enemizer.enemyDamage)
+        setRowIn(settingRows, "enemy_health",       s.enemizer.enemyHealth)
+        setRowIn(settingRows, "pot_shuffle",        s.enemizer.potShuffle)
+        setRowIn(settingRows, "hints",              s.hints)
+        setRowIn(settingRows, "weapons",            s.weapons)
+        setRowIn(settingRows, "item_pool",          s.item.pool)
+        setRowIn(settingRows, "item_functionality", s.item.functionality)
+        setRowIn(settingRows, "spoilers",           s.spoilers)
+        setRowIn(settingRows, "pegasus_boots",      if (s.pseudoboots) "on" else "off")
     }
 
-    private fun setRow(key: String, apiValue: String) {
-        val row = settingRows.firstOrNull { it.key == key } ?: return
+    private fun setRowIn(rows: List<SettingRowModel>, key: String, apiValue: String) {
+        val row = rows.firstOrNull { it.key == key } ?: return
         val idx = row.options.indexOfFirst { it.apiValue == apiValue }
         if (idx >= 0) {
             row.selectedIndex = idx
@@ -289,36 +335,62 @@ class MainActivity : AppCompatActivity() {
 
     private fun restoreCustomization() {
         val c = PresetManager.loadCustomization(this)
-        setCustomizationRow("heart_beep_speed", c.heartBeepSpeed)
-        setCustomizationRow("heart_color",      c.heartColor)
-        setCustomizationRow("menu_speed",       c.menuSpeed)
-        setCustomizationRow("quick_swap",       c.quickSwap)
+        setRowIn(customizationRows, "heart_beep_speed", c.heartBeepSpeed)
+        setRowIn(customizationRows, "heart_color",      c.heartColor)
+        setRowIn(customizationRows, "menu_speed",       c.menuSpeed)
+        setRowIn(customizationRows, "quick_swap",       c.quickSwap)
+        spritePath = c.spritePath
+        spritePreviewUrl = c.spritePreviewUrl
     }
 
-    private fun setCustomizationRow(key: String, apiValue: String) {
-        val row = customizationRows.firstOrNull { it.key == key } ?: return
-        val idx = row.options.indexOfFirst { it.apiValue == apiValue }
-        if (idx >= 0) {
-            row.selectedIndex = idx
-            row.spinnerRef?.setSelection(idx, false)
+    private fun restorePaths() {
+        val (romStr, outputStr) = PresetManager.loadPaths(this)
+        var clearedRom = false
+        var clearedOutput = false
+        if (romStr != null) {
+            try {
+                val uri = Uri.parse(romStr)
+                contentResolver.openInputStream(uri)?.close()
+                romUri = uri
+                binding.romPathText.text = uri.lastPathSegment ?: uri.toString()
+            } catch (_: Exception) { clearedRom = true }
         }
+        if (outputStr != null) {
+            try {
+                val uri = Uri.parse(outputStr)
+                val doc = androidx.documentfile.provider.DocumentFile.fromTreeUri(this, uri)
+                if (doc != null && doc.exists()) {
+                    outputUri = uri
+                    binding.outputPathText.text = uri.lastPathSegment ?: uri.toString()
+                } else {
+                    clearedOutput = true
+                }
+            } catch (_: Exception) { clearedOutput = true }
+        }
+        if (clearedRom || clearedOutput) {
+            PresetManager.savePaths(this, romUri?.toString(), outputUri?.toString())
+        }
+        updateGenerateButton()
     }
+
 
     private fun currentCustomization(): CustomizationSettings {
         fun cv(key: String) = customizationRows.firstOrNull { it.key == key }
             ?.let { it.options[it.selectedIndex].apiValue } ?: ""
         return CustomizationSettings(
-            heartBeepSpeed = cv("heart_beep_speed"),
-            heartColor     = cv("heart_color"),
-            menuSpeed      = cv("menu_speed"),
-            quickSwap      = cv("quick_swap"),
+            heartBeepSpeed   = cv("heart_beep_speed"),
+            heartColor       = cv("heart_color"),
+            menuSpeed        = cv("menu_speed"),
+            quickSwap        = cv("quick_swap"),
+            spritePath       = spritePath,
+            spritePreviewUrl = spritePreviewUrl,
         )
     }
 
     private fun tryMatchPreset() {
         if (suppressPresetApply) return
-        val currentJson = json.encodeToString(currentSettings())
-        val matchIdx = allPresets.indexOfFirst { json.encodeToString(it.settings) == currentJson }
+        val currentJson = AlttprApiClient.json.encodeToString(currentSettings())
+        val matchIdx = cachedPresetJsons.indexOfFirst { it == currentJson }
         suppressPresetApply = true
         if (matchIdx >= 0) {
             binding.presetSpinner.setSelection(matchIdx)
@@ -393,6 +465,14 @@ class MainActivity : AppCompatActivity() {
                 showStatus("Applying cosmetics…")
                 withContext(Dispatchers.IO) { CosmeticPatcher.apply(patchedRom, customization) }
 
+                if (customization.spritePath.isNotEmpty()) {
+                    showStatus("Applying sprite…")
+                    val spriteErr = withContext(Dispatchers.IO) {
+                        SpriteManager.resolveAndApply(this@MainActivity, customization.spritePath, patchedRom)
+                    }
+                    if (spriteErr != null) { showStatus(spriteErr, isError = true); return@launch }
+                }
+
                 showStatus("Writing output ROM…")
                 withContext(Dispatchers.IO) { writeOutput(output, seed.hash, patchedRom) }
 
@@ -409,10 +489,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun writeOutput(treeUri: Uri, hash: String, rom: ByteArray) {
-        val docTree = androidx.documentfile.provider.DocumentFile.fromTreeUri(this, treeUri)!!
+        val docTree = androidx.documentfile.provider.DocumentFile.fromTreeUri(this, treeUri)
+            ?: throw IllegalStateException("Cannot access output folder. Please re-select it.")
         val file = docTree.createFile("application/octet-stream", "lttp_rand_$hash.sfc")
             ?: throw IllegalStateException("Cannot create output file in selected folder.")
-        contentResolver.openOutputStream(file.uri)!!.use { it.write(rom) }
+        val stream = contentResolver.openOutputStream(file.uri)
+            ?: throw IllegalStateException("Cannot open output file for writing.")
+        stream.use { it.write(rom) }
     }
 
     // ── UI helpers ────────────────────────────────────────────────────────────
@@ -424,6 +507,30 @@ class MainActivity : AppCompatActivity() {
     private fun setGenerating(generating: Boolean) {
         binding.progressBar.visibility = if (generating) View.VISIBLE else View.GONE
         binding.generateBtn.isEnabled = !generating && romUri != null && outputUri != null
+    }
+
+    private fun updateSpriteRow() {
+        spriteNameText?.text = when (spritePath) {
+            "" -> getString(R.string.default_sprite_name)
+            SpriteManager.RANDOM_ALL_SENTINEL -> getString(R.string.random_all_btn)
+            SpriteManager.RANDOM_FAVORITES_SENTINEL -> getString(R.string.random_fav_btn)
+            else -> java.io.File(spritePath).nameWithoutExtension
+        }
+        val img = spritePreviewImage ?: return
+        if (spritePreviewUrl.isNotEmpty()
+            && spritePath != SpriteManager.RANDOM_ALL_SENTINEL
+            && spritePath != SpriteManager.RANDOM_FAVORITES_SENTINEL
+            && spritePath.isNotEmpty()) {
+            img.visibility = View.VISIBLE
+            val request = ImageRequest.Builder(this)
+                .data(spritePreviewUrl)
+                .target(img)
+                .build()
+            Coil.imageLoader(this).enqueue(request)
+        } else {
+            img.visibility = View.GONE
+            img.setImageDrawable(null)
+        }
     }
 
     private fun showStatus(message: String, isError: Boolean = false) {

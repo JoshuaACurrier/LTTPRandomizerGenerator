@@ -21,6 +21,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".SpriteBrowserActivity"
+            android:exported="false"
+            android:theme="@style/Theme.LTTPRandomizer"/>
+
     </application>
 
 </manifest>

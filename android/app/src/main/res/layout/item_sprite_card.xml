@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#2A2A3E"
+    android:padding="8dp"
+    android:layout_margin="4dp"
+    android:gravity="center_horizontal">
+
+    <ImageView
+        android:id="@+id/spritePreview"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:scaleType="fitCenter"
+        android:background="#1E1E2E"
+        android:contentDescription="@string/sprite_card_preview_desc"/>
+
+    <TextView
+        android:id="@+id/spriteName"
+        android:textColor="#E0E0F0"
+        android:textSize="11sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:layout_marginTop="4dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:id="@+id/spriteAuthor"
+        android:textColor="#888899"
+        android:textSize="9sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:id="@+id/starButton"
+        android:text="@string/star_icon"
+        android:textSize="20sp"
+        android:textColor="#6C63FF"
+        android:gravity="center"
+        android:clickable="true"
+        android:focusable="true"
+        android:layout_marginTop="2dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+</LinearLayout>

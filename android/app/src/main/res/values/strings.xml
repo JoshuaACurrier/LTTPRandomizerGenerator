@@ -9,4 +9,35 @@
     <string name="preset_name_hint">Preset name…</string>
     <string name="rom_path_hint">Select ALttP base ROM…</string>
     <string name="output_path_hint">Select output folder…</string>
+    <string name="sprite_preview_desc">Sprite preview</string>
+
+    <!-- activity_main.xml -->
+    <string name="app_title">LTTP Randomizer Generator</string>
+    <string name="app_subtitle">Generate a randomized ALttP ROM via alttpr.com</string>
+    <string name="base_rom_label">Base ROM</string>
+    <string name="output_folder_label">Output Folder</string>
+    <string name="sprite_section_label">SPRITE</string>
+    <string name="preset_section_label">PRESET</string>
+    <string name="unsaved_label">Unsaved</string>
+    <string name="customization_toggle_collapsed">▶ CUSTOMIZATION</string>
+    <string name="customization_toggle_expanded">▲ CUSTOMIZATION</string>
+    <string name="settings_toggle_collapsed">▶ RANDOMIZER SETTINGS</string>
+    <string name="settings_toggle_expanded">▲ RANDOMIZER SETTINGS</string>
+
+    <!-- row_sprite.xml -->
+    <string name="default_sprite_name">Default (Link)</string>
+    <string name="browse_sprite">Browse…</string>
+    <string name="clear_sprite">Clear</string>
+
+    <!-- activity_sprite_browser.xml -->
+    <string name="sprite_browser_title">Sprite Browser</string>
+    <string name="sprite_search_hint">Search by name or author…</string>
+    <string name="random_all_btn">Random (any)</string>
+    <string name="random_fav_btn">Random (fav)</string>
+    <string name="default_link_btn">Default (Link)</string>
+    <string name="cancel_btn">Cancel</string>
+
+    <!-- item_sprite_card.xml -->
+    <string name="star_icon">\u2606</string>
+    <string name="sprite_card_preview_desc">Sprite preview</string>
 </resources>

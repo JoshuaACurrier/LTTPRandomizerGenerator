@@ -49,27 +49,8 @@ namespace LTTPRandomizerGenerator.Services
 
             rom[AddrQuickSwap] = s.QuickSwap == "on" ? (byte)0x01 : (byte)0x00;
 
-            WriteChecksum(rom);
+            RomUtils.WriteChecksum(rom);
             return rom;
-        }
-
-        /// <summary>
-        /// Recalculates and writes the SNES HiROM checksum at 0x7FDC–0x7FDF.
-        /// Duplicated from BpsPatcher to avoid coupling to its private implementation.
-        /// </summary>
-        private static void WriteChecksum(byte[] rom)
-        {
-            rom[0x7FDC] = rom[0x7FDD] = rom[0x7FDE] = rom[0x7FDF] = 0;
-
-            uint sum = 0;
-            foreach (byte b in rom) sum += b;
-            ushort checksum   = (ushort)(sum & 0xFFFF);
-            ushort complement = (ushort)(checksum ^ 0xFFFF);
-
-            rom[0x7FDC] = (byte)(complement & 0xFF);
-            rom[0x7FDD] = (byte)(complement >> 8);
-            rom[0x7FDE] = (byte)(checksum & 0xFF);
-            rom[0x7FDF] = (byte)(checksum >> 8);
         }
     }
 }

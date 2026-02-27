@@ -10,9 +10,9 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 object AlttprApiClient {
-    private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+    internal val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
 
-    private val http = OkHttpClient.Builder()
+    internal val http = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .addInterceptor { chain ->

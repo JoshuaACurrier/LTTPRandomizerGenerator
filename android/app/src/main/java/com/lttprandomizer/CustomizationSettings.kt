@@ -8,6 +8,8 @@ data class CustomizationSettings(
     val heartColor: String     = "red",
     val menuSpeed: String      = "normal",
     val quickSwap: String      = "off",
+    val spritePath: String     = "",
+    val spritePreviewUrl: String = "",
 )
 
 object CustomizationOptions {

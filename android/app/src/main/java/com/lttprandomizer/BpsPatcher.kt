@@ -16,7 +16,7 @@ object BpsPatcher {
         var rom = applyBps(sourceRom, bpsPatch)
         rom = expandIfNeeded(rom, targetSizeMb)
         applyDictPatches(rom, dictPatches)
-        writeChecksum(rom)
+        RomUtils.writeChecksum(rom)
         return rom
     }
 
@@ -104,18 +104,6 @@ object BpsPatcher {
                 values.forEachIndexed { i, v -> rom[offset + i] = v.toByte() }
             }
         }
-    }
-
-    private fun writeChecksum(rom: ByteArray) {
-        rom[0x7FDC] = 0; rom[0x7FDD] = 0; rom[0x7FDE] = 0; rom[0x7FDF] = 0
-        var sum = 0L
-        for (b in rom) sum += (b.toInt() and 0xFF)
-        val checksum   = (sum and 0xFFFF).toInt()
-        val complement = checksum xor 0xFFFF
-        rom[0x7FDC] = (complement and 0xFF).toByte()
-        rom[0x7FDD] = (complement shr 8).toByte()
-        rom[0x7FDE] = (checksum and 0xFF).toByte()
-        rom[0x7FDF] = (checksum shr 8).toByte()
     }
 
     private fun crc32(data: ByteArray, offset: Int, length: Int): Long {

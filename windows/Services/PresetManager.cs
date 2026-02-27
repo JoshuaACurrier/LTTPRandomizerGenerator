@@ -23,6 +23,9 @@ namespace LTTPRandomizerGenerator.Services
 
         private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
+        /// <summary>Set to true if any load operation failed to deserialize saved data.</summary>
+        public static bool LastLoadHadError { get; private set; }
+
         // ── Load ──────────────────────────────────────────────────────────────
 
         /// <summary>Returns user-saved presets (does NOT include built-in presets).</summary>
@@ -34,7 +37,7 @@ namespace LTTPRandomizerGenerator.Services
                 string json = File.ReadAllText(PresetsFile);
                 return JsonSerializer.Deserialize<List<RandomizerPreset>>(json) ?? new();
             }
-            catch { return new(); }
+            catch { LastLoadHadError = true; return new(); }
         }
 
         /// <summary>Returns the last-used settings, or default settings if none saved.</summary>
@@ -46,7 +49,7 @@ namespace LTTPRandomizerGenerator.Services
                 string json = File.ReadAllText(LastFile);
                 return JsonSerializer.Deserialize<RandomizerSettings>(json) ?? new();
             }
-            catch { return new(); }
+            catch { LastLoadHadError = true; return new(); }
         }
 
         // ── Save ──────────────────────────────────────────────────────────────
@@ -125,7 +128,7 @@ namespace LTTPRandomizerGenerator.Services
                 string output = root.TryGetProperty("outputFolder", out var o) ? o.GetString() ?? "" : "";
                 return (rom, output);
             }
-            catch { return (string.Empty, string.Empty); }
+            catch { LastLoadHadError = true; return (string.Empty, string.Empty); }
         }
 
         // ── Internal ─────────────────────────────────────────────────────────

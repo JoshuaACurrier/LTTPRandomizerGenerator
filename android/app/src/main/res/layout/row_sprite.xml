@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:layout_marginBottom="6dp">
+
+    <ImageView
+        android:id="@+id/spritePreviewImage"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:scaleType="fitCenter"
+        android:visibility="gone"
+        android:contentDescription="@string/sprite_preview_desc"
+        android:layout_marginBottom="6dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/spriteNameText"
+            android:text="@string/default_sprite_name"
+            android:textColor="#E0E0F0"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"/>
+
+        <Button
+            android:id="@+id/browseSpriteBtn"
+            android:text="@string/browse_sprite"
+            android:backgroundTint="#3A3A55"
+            android:textColor="#E0E0F0"
+            android:textSize="11sp"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="6dp"
+            android:layout_marginStart="4dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+
+        <Button
+            android:id="@+id/clearSpriteBtn"
+            android:text="@string/clear_sprite"
+            android:backgroundTint="#3A3A55"
+            android:textColor="#E0E0F0"
+            android:textSize="11sp"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="6dp"
+            android:layout_marginStart="4dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,31 +1,55 @@
 package com.lttprandomizer
 
 import android.content.Context
+import android.util.Log
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 object PresetManager {
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
+    private const val TAG = "PresetManager"
     private const val PREFS_NAME = "lttp_randomizer_prefs"
     private const val KEY_PRESETS = "user_presets"
     private const val KEY_LAST_SETTINGS = "last_settings"
     private const val KEY_LAST_CUSTOMIZATION = "last_customization"
+    private const val KEY_SPRITE_FAVORITES = "sprite_favorites"
+    private const val KEY_ROM_URI    = "rom_uri"
+    private const val KEY_OUTPUT_URI = "output_uri"
+
+    /** Set to true if any load operation failed to deserialize saved data. */
+    var lastLoadHadError = false
+        private set
+
+    private inline fun <reified T> decodeOrDefault(raw: String?, default: T): T {
+        if (raw == null) return default
+        return try {
+            json.decodeFromString(raw)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to decode ${T::class.simpleName}, using defaults", e)
+            lastLoadHadError = true
+            default
+        }
+    }
 
     // ── Load ─────────────────────────────────────────────────────────────────
 
-    fun loadUserPresets(context: Context): List<RandomizerPreset> {
-        val raw = prefs(context).getString(KEY_PRESETS, null) ?: return emptyList()
-        return try { json.decodeFromString(raw) } catch (_: Exception) { emptyList() }
+    fun loadUserPresets(context: Context): List<RandomizerPreset> =
+        decodeOrDefault(prefs(context).getString(KEY_PRESETS, null), emptyList())
+
+    fun loadLastSettings(context: Context): RandomizerSettings =
+        decodeOrDefault(prefs(context).getString(KEY_LAST_SETTINGS, null), RandomizerSettings())
+
+    fun loadCustomization(context: Context): CustomizationSettings =
+        decodeOrDefault(prefs(context).getString(KEY_LAST_CUSTOMIZATION, null), CustomizationSettings())
+
+    fun loadFavorites(context: Context): MutableSet<String> {
+        return prefs(context).getStringSet(KEY_SPRITE_FAVORITES, null)?.toMutableSet()
+            ?: mutableSetOf()
     }
 
-    fun loadLastSettings(context: Context): RandomizerSettings {
-        val raw = prefs(context).getString(KEY_LAST_SETTINGS, null) ?: return RandomizerSettings()
-        return try { json.decodeFromString(raw) } catch (_: Exception) { RandomizerSettings() }
-    }
-
-    fun loadCustomization(context: Context): CustomizationSettings {
-        val raw = prefs(context).getString(KEY_LAST_CUSTOMIZATION, null) ?: return CustomizationSettings()
-        return try { json.decodeFromString(raw) } catch (_: Exception) { CustomizationSettings() }
+    fun loadPaths(context: Context): Pair<String?, String?> {
+        val p = prefs(context)
+        return Pair(p.getString(KEY_ROM_URI, null), p.getString(KEY_OUTPUT_URI, null))
     }
 
     // ── Save ─────────────────────────────────────────────────────────────────
@@ -61,6 +85,17 @@ object PresetManager {
 
     fun saveCustomization(context: Context, c: CustomizationSettings) {
         prefs(context).edit().putString(KEY_LAST_CUSTOMIZATION, json.encodeToString(c)).apply()
+    }
+
+    fun saveFavorites(context: Context, favorites: Set<String>) {
+        prefs(context).edit().putStringSet(KEY_SPRITE_FAVORITES, favorites).apply()
+    }
+
+    fun savePaths(context: Context, romUri: String?, outputUri: String?) {
+        prefs(context).edit()
+            .putString(KEY_ROM_URI, romUri)
+            .putString(KEY_OUTPUT_URI, outputUri)
+            .apply()
     }
 
     // ── Internal ─────────────────────────────────────────────────────────────
