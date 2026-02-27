@@ -8,12 +8,43 @@ A utility that generates randomized *A Link to the Past* ROMs using the [alttpr.
 
 ## Features
 
+### Randomizer Settings
 - All alttpr.com randomizer settings exposed as dropdowns
 - Named preset system — save your favourite settings with a custom name
 - 6 built-in presets: **Quick Run**, **Casual Boots**, **Keysanity**, **All Mix**, **Beginner**, **Swordless**
 - Auto-saves last-used settings between sessions
 - Generates a shareable seed permalink
+
+### Cosmetic Customization
+- **Heart Beep Speed** — Off, Quarter, Half, Normal, Double
+- **Heart Color** — Red, Blue, Green, Yellow
+- **Menu Speed** — Half, Normal, Double, Triple, Quad, Instant
+- **Quick Swap** — toggle item swap without going to the menu
+
+### Sprite Browser *(Windows only — Android coming soon)*
+- Browse 600+ community-created Link sprites from [alttpr.com](https://alttpr.com)
+- Search by name or author; star favorites that pin to the top
+- Sprite list and all preview images cached to disk — browser works offline after first load
+- **Random All** (**?**) — a surprise sprite is picked at generate time from the full list
+- **Random Favorites** (**?★**) — same, but only from your starred sprites
+- Selecting the default "Link" card resets to the original sprite
+
+### General
 - Self-contained — no Python, PHP, or other runtimes required
+- Your ROM is never sent to any server
+
+---
+
+## Platform Comparison
+
+| Feature | Windows | Android |
+|---------|:-------:|:-------:|
+| All randomizer settings | ✓ | ✓ |
+| Preset system (6 built-in + custom) | ✓ | ✓ |
+| Cosmetic customization | ✓ | ✓ |
+| Sprite browser (600+ sprites) | ✓ | — |
+| Sprite favorites & offline cache | ✓ | — |
+| Random sprite (All / Favorites) | ✓ | — |
 
 ---
 
@@ -41,13 +72,16 @@ Manual sideload: download the APK, enable *Install from unknown sources* in Andr
 1. **Select your base ROM** — the Japanese v1.0 ALttP ROM (`.sfc`, `.smc`, or `.rom`)
 2. **Select an output folder** where the randomized ROM will be saved
 3. **Pick a preset** or configure settings manually using the dropdowns
-4. Hit **Generate ROM**
-5. The app contacts alttpr.com, downloads the seed patch, applies it locally, and writes the output ROM
-6. A shareable seed permalink is shown — click it to open the seed page on alttpr.com
+4. *(Optional)* Expand **CUSTOMIZATION** to change cosmetics or pick a sprite *(Windows)*
+5. Hit **Generate ROM**
+6. The app contacts alttpr.com, downloads the seed patch, applies it locally, and writes the output ROM
+7. A shareable seed permalink is shown — click it to open the seed page on alttpr.com
 
 ---
 
 ## Settings Reference
+
+### Randomizer Settings
 
 | Setting | What it does |
 |---------|-------------|
@@ -99,6 +133,8 @@ Output: `windows/bin/Release/net8.0-windows/win-x64/publish/LTTPRandomizerGenera
 
 **Prerequisites:** Android Studio or Android SDK (API 34), JDK 17
 
+Open `android/` as the project root in Android Studio and build from there, or:
+
 ```bash
 cd android
 ./gradlew assembleRelease
@@ -123,39 +159,16 @@ Both Windows EXE and Android APK are built and attached to the release automatic
 
 ---
 
-## Project Structure
-
-```
-windows/            WPF .NET 8 application
-  Models/           RandomizerSettings, RandomizerPreset
-  Services/         AlttprApiClient, BpsPatcher, RomValidator, PresetManager
-  Resources/        Dark theme styles
-  MainWindow.*      UI + ViewModel (MVVM-lite)
-
-android/            Native Kotlin Android application
-  app/src/main/
-    java/com/lttprandomizer/
-      AlttprApiClient.kt    HTTP calls to alttpr.com
-      BpsPatcher.kt         BPS patch + dict patch applicator
-      RomValidator.kt       CRC32 ROM validation
-      PresetManager.kt      SharedPreferences preset storage
-      MainActivity.kt       Single-activity UI
-
-.github/workflows/  GitHub Actions CI
-  build-windows.yml
-  build-android.yml
-```
-
----
-
 ## How It Works
 
 1. App sends your chosen settings to `POST https://alttpr.com/api/randomizer` (no ROM upload)
 2. API returns a seed hash + a URL to a BPS base patch + seed-specific byte patches
 3. App downloads the BPS patch and applies it to your local ROM
 4. Seed-specific patches (item placement, enemy placement, etc.) are applied on top
-5. SNES checksum is recalculated
-6. Output ROM is written to your chosen folder
+5. Cosmetic patches are applied (heart color, menu speed, etc.)
+6. Sprite is injected if selected *(Windows)*
+7. SNES checksum is recalculated
+8. Output ROM is written to your chosen folder
 
 Your ROM is never sent to any server.
 
