@@ -110,18 +110,21 @@
                        Click="DeletePreset_Click"/>
         </Grid>
 
-        <!-- Settings panel -->
-        <StackPanel Grid.Row="4">
-            <TextBlock Text="{Binding SettingsToggleLabel}"
-                       Foreground="{StaticResource TextMutedBrush}"
-                       FontSize="11" FontWeight="SemiBold"
-                       Cursor="Hand"
-                       Margin="0,0,0,8"
-                       MouseLeftButtonUp="ToggleSettings_Click"/>
+        <!-- Settings panel (Customization + Randomizer Settings) -->
+        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
 
-            <ScrollViewer VerticalScrollBarVisibility="Auto"
-                          Visibility="{Binding IsSettingsExpanded, Converter={StaticResource BoolToVis}}">
-                <ItemsControl ItemsSource="{Binding SettingRows}">
+                <!-- Customization section -->
+                <TextBlock Text="{Binding CustomizationToggleLabel}"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="11" FontWeight="SemiBold"
+                           Cursor="Hand"
+                           Margin="0,0,0,8"
+                           MouseLeftButtonUp="ToggleCustomization_Click"/>
+
+                <ItemsControl ItemsSource="{Binding CustomizationRows}"
+                              Visibility="{Binding IsCustomizationExpanded, Converter={StaticResource BoolToVis}}"
+                              Margin="0,0,0,10">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="0,3">
@@ -141,8 +144,39 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </ScrollViewer>
-        </StackPanel>
+
+                <!-- Randomizer Settings section -->
+                <TextBlock Text="{Binding SettingsToggleLabel}"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="11" FontWeight="SemiBold"
+                           Cursor="Hand"
+                           Margin="0,0,0,8"
+                           MouseLeftButtonUp="ToggleSettings_Click"/>
+
+                <ItemsControl ItemsSource="{Binding SettingRows}"
+                              Visibility="{Binding IsSettingsExpanded, Converter={StaticResource BoolToVis}}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding Label}"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextMutedBrush}"/>
+                                <ComboBox  Grid.Column="1"
+                                           Style="{StaticResource DarkComboBox}"
+                                           ItemsSource="{Binding Options}"
+                                           SelectedItem="{Binding SelectedOption, Mode=TwoWay}"
+                                           DisplayMemberPath="Display"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </StackPanel>
+        </ScrollViewer>
 
         <!-- Generate button -->
         <Button Grid.Row="5" Content="Generate ROM"

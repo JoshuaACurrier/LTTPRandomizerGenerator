@@ -27,6 +27,8 @@ namespace LTTPRandomizerGenerator
 
             LoadPresets();
             RestoreLastSettings();
+            BuildCustomizationRows();
+            RestoreCustomization();
             _initialized = true;
             TryMatchPreset();
         }
@@ -116,6 +118,19 @@ namespace LTTPRandomizerGenerator
 
         public bool CanDeletePreset => SelectedPreset is { IsBuiltIn: false };
         public bool IsPresetUnsaved => SelectedPreset is null;
+
+        // ── Customization rows ────────────────────────────────────────────────
+
+        public ObservableCollection<SettingRow> CustomizationRows { get; } = new();
+
+        private bool _isCustomizationExpanded = false;
+        public bool IsCustomizationExpanded
+        {
+            get => _isCustomizationExpanded;
+            set { _isCustomizationExpanded = value; OnPropertyChanged(); OnPropertyChanged(nameof(CustomizationToggleLabel)); }
+        }
+
+        public string CustomizationToggleLabel => IsCustomizationExpanded ? "▲ CUSTOMIZATION" : "▶ CUSTOMIZATION";
 
         // ── Settings rows (drives the XAML ItemsControl) ─────────────────────
 
@@ -218,6 +233,55 @@ namespace LTTPRandomizerGenerator
         private void OnSettingRowChanged(object? sender, PropertyChangedEventArgs e)
             => TryMatchPreset();
 
+        private CustomizationSettings CurrentCustomization()
+        {
+            var c = new CustomizationSettings();
+            foreach (var row in CustomizationRows)
+            {
+                if (row.SelectedOption is null) continue;
+                string v = row.SelectedOption.ApiValue;
+                switch (row.FieldKey)
+                {
+                    case "heart_beep":   c.HeartBeepSpeed = v; break;
+                    case "heart_color":  c.HeartColor     = v; break;
+                    case "menu_speed":   c.MenuSpeed      = v; break;
+                    case "quick_swap":   c.QuickSwap      = v; break;
+                }
+            }
+            return c;
+        }
+
+        private void ApplyCustomizationToRows(CustomizationSettings c)
+        {
+            SetCustomizationRow("heart_beep",  c.HeartBeepSpeed);
+            SetCustomizationRow("heart_color", c.HeartColor);
+            SetCustomizationRow("menu_speed",  c.MenuSpeed);
+            SetCustomizationRow("quick_swap",  c.QuickSwap);
+        }
+
+        private void SetCustomizationRow(string key, string value)
+        {
+            var row = CustomizationRows.FirstOrDefault(r => r.FieldKey == key);
+            if (row is null) return;
+            row.SelectedOption = row.Options.FirstOrDefault(o => o.ApiValue == value)
+                               ?? row.Options.FirstOrDefault();
+        }
+
+        private void BuildCustomizationRows()
+        {
+            CustomizationRows.Clear();
+            CustomizationRows.Add(new("heart_beep",  "Heart Beep Speed", CustomizationOptions.HeartBeepSpeed));
+            CustomizationRows.Add(new("heart_color", "Heart Color",       CustomizationOptions.HeartColor));
+            CustomizationRows.Add(new("menu_speed",  "Menu Speed",        CustomizationOptions.MenuSpeed));
+            CustomizationRows.Add(new("quick_swap",  "Quick Swap",        CustomizationOptions.QuickSwap));
+
+            foreach (var row in CustomizationRows)
+                row.PropertyChanged += OnCustomizationRowChanged;
+        }
+
+        private void OnCustomizationRowChanged(object? sender, PropertyChangedEventArgs e)
+            => CustomizationManager.Save(CurrentCustomization());
+
         private void TryMatchPreset()
         {
             if (!_initialized || _suppressPresetApply) return;
@@ -255,6 +319,12 @@ namespace LTTPRandomizerGenerator
             OnPropertyChanged(nameof(CanGenerate));
         }
 
+        private void RestoreCustomization()
+        {
+            var c = CustomizationManager.Load();
+            ApplyCustomizationToRows(c);
+        }
+
         // ── Event handlers ────────────────────────────────────────────────────
 
         private void BrowseRom_Click(object sender, RoutedEventArgs e)
@@ -289,6 +359,9 @@ namespace LTTPRandomizerGenerator
             _suppressPresetApply = false;
             NewPresetName = SelectedPreset.IsBuiltIn ? string.Empty : SelectedPreset.Name;
         }
+
+        private void ToggleCustomization_Click(object sender, MouseButtonEventArgs e)
+            => IsCustomizationExpanded = !IsCustomizationExpanded;
 
         private void ToggleSettings_Click(object sender, MouseButtonEventArgs e)
             => IsSettingsExpanded = !IsSettingsExpanded;
@@ -344,9 +417,12 @@ namespace LTTPRandomizerGenerator
                 if (seed is null) return;
 
                 ShowStatus("Applying patches...", isError: false);
+                var customization = CurrentCustomization();
                 byte[] output = await Task.Run(() =>
-                    BpsPatcher.Apply(romBytes, seed.BpsPatchBytes, seed.DictionaryPatches, seed.RomSizeMb),
-                    _cts.Token);
+                {
+                    byte[] rom = BpsPatcher.Apply(romBytes, seed.BpsPatchBytes, seed.DictionaryPatches, seed.RomSizeMb);
+                    return CosmeticPatcher.Apply(rom, customization);
+                }, _cts.Token);
 
                 string outFile = Path.Combine(OutputFolder, $"lttp_rand_{seed.Hash}.sfc");
                 await File.WriteAllBytesAsync(outFile, output, _cts.Token);
