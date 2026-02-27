@@ -64,16 +64,19 @@ namespace LTTPRandomizerGenerator.Services
             if (apiResponse is null)
                 throw new InvalidOperationException("API returned empty response.");
 
-            // Download the BPS base patch
-            progress?.Report("Downloading base patch...");
-            byte[] bpsBytes;
-            try
+            // Download the BPS base patch (optional — some seeds omit it)
+            byte[] bpsBytes = Array.Empty<byte>();
+            if (!string.IsNullOrWhiteSpace(apiResponse.BpsLocation))
             {
-                bpsBytes = await Http.GetByteArrayAsync(apiResponse.BpsLocation, ct);
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Failed to download BPS patch: {ex.Message}", ex);
+                progress?.Report("Downloading base patch...");
+                try
+                {
+                    bpsBytes = await Http.GetByteArrayAsync(apiResponse.BpsLocation, ct);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Failed to download BPS patch: {ex.Message}", ex);
+                }
             }
 
             return new SeedResult

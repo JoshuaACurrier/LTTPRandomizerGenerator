@@ -22,7 +22,8 @@ namespace LTTPRandomizerGenerator.Services
             List<Dictionary<string, List<int>>> dictPatches,
             int targetSizeMb)
         {
-            byte[] rom = ApplyBps(sourceRom, bpsPatch);
+            // BPS is optional — if absent, apply dict patches directly to source ROM
+            byte[] rom = bpsPatch.Length > 0 ? ApplyBps(sourceRom, bpsPatch) : (byte[])sourceRom.Clone();
             rom = ExpandIfNeeded(rom, targetSizeMb);
             ApplyDictPatches(rom, dictPatches);
             WriteChecksum(rom);

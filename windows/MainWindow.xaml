@@ -5,13 +5,16 @@
         Width="680" Height="820"
         MinWidth="600" MinHeight="700"
         WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}"
+        Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI" FontSize="13"
         Icon="Resources/icon.ico">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </Window.Resources>
 
-    <Grid Margin="20">
+    <Grid Margin="20" Background="{StaticResource BgBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- header -->
             <RowDefinition Height="Auto"/>  <!-- file pickers -->
@@ -28,7 +31,7 @@
                        FontSize="22" FontWeight="Bold"
                        Foreground="{StaticResource AccentBrush}"/>
             <TextBlock Text="Generate a randomized A Link to the Past ROM via alttpr.com"
-                       Foreground="{StaticResource SubtextBrush}" Margin="0,2,0,0"/>
+                       Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0"/>
         </StackPanel>
 
         <!-- File pickers -->
@@ -44,24 +47,28 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Base ROM:" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Base ROM:"
+                       Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
             <TextBox   Grid.Row="0" Grid.Column="1" x:Name="RomPathBox" IsReadOnly="True"
+                       Style="{StaticResource DarkTextBox}"
                        Text="{Binding RomPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        VerticalAlignment="Center"/>
             <Button    Grid.Row="0" Grid.Column="2" Content="Browse..." Margin="6,0,0,0"
-                       Style="{StaticResource SecondaryButton}"
+                       Style="{StaticResource DarkButton}"
                        Click="BrowseRom_Click"/>
 
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="Output Folder:" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Output Folder:"
+                       Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
             <TextBox   Grid.Row="2" Grid.Column="1" IsReadOnly="True"
+                       Style="{StaticResource DarkTextBox}"
                        Text="{Binding OutputFolder, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        VerticalAlignment="Center"/>
             <Button    Grid.Row="2" Grid.Column="2" Content="Browse..." Margin="6,0,0,0"
-                       Style="{StaticResource SecondaryButton}"
+                       Style="{StaticResource DarkButton}"
                        Click="BrowseOutput_Click"/>
         </Grid>
 
-        <Separator Grid.Row="2"/>
+        <Separator Grid.Row="2" Margin="0,10"/>
 
         <!-- Preset row -->
         <Grid Grid.Row="3" Margin="0,0,0,8">
@@ -73,22 +80,25 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Column="0" Text="Preset:" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="0" Text="Preset:"
+                       Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
             <ComboBox  Grid.Column="1" x:Name="PresetCombo"
+                       Style="{StaticResource DarkComboBox}"
                        ItemsSource="{Binding AllPresets}"
                        SelectedItem="{Binding SelectedPreset, Mode=TwoWay}"
                        DisplayMemberPath="Name"
                        SelectionChanged="PresetCombo_SelectionChanged"/>
 
             <TextBox   Grid.Column="2" x:Name="PresetNameBox" Width="140" Margin="6,0,0,0"
+                       Style="{StaticResource DarkTextBox}"
                        Text="{Binding NewPresetName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        VerticalAlignment="Center"/>
 
             <Button    Grid.Column="3" Content="Save" Margin="4,0,0,0"
-                       Style="{StaticResource SecondaryButton}"
+                       Style="{StaticResource DarkButton}"
                        Click="SavePreset_Click"/>
             <Button    Grid.Column="4" Content="Delete" Margin="4,0,0,0"
-                       Style="{StaticResource DangerButton}"
+                       Style="{StaticResource DangerOutlineButton}"
                        IsEnabled="{Binding CanDeletePreset}"
                        Click="DeletePreset_Click"/>
         </Grid>
@@ -96,7 +106,10 @@
         <!-- Settings panel -->
         <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
             <StackPanel>
-                <TextBlock Text="RANDOMIZER SETTINGS" Style="{StaticResource SectionHeader}"/>
+                <TextBlock Text="RANDOMIZER SETTINGS"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="11" FontWeight="SemiBold"
+                           Margin="0,0,0,8"/>
 
                 <ItemsControl ItemsSource="{Binding SettingRows}">
                     <ItemsControl.ItemTemplate>
@@ -107,8 +120,10 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="{Binding Label}"
-                                           VerticalAlignment="Center" Foreground="{StaticResource SubtextBrush}"/>
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextMutedBrush}"/>
                                 <ComboBox  Grid.Column="1"
+                                           Style="{StaticResource DarkComboBox}"
                                            ItemsSource="{Binding Options}"
                                            SelectedItem="{Binding SelectedOption, Mode=TwoWay}"
                                            DisplayMemberPath="Display"/>
@@ -121,22 +136,20 @@
 
         <!-- Generate button -->
         <Button Grid.Row="5" Content="Generate ROM"
+                Style="{StaticResource AccentButton}"
                 IsEnabled="{Binding CanGenerate}"
-                FontSize="15" FontWeight="SemiBold"
-                Margin="0,12,0,0" Padding="0,12"
+                Margin="0,12,0,0"
                 Click="Generate_Click"/>
 
         <!-- Progress + status -->
         <StackPanel Grid.Row="6" Margin="0,8,0,0">
-            <ProgressBar x:Name="Progress"
+            <ProgressBar Style="{StaticResource DarkProgressBar}"
                          IsIndeterminate="{Binding IsGenerating}"
                          Visibility="{Binding IsGenerating, Converter={StaticResource BoolToVis}}"/>
-            <TextBlock x:Name="StatusText"
-                       Text="{Binding StatusMessage}"
+            <TextBlock Text="{Binding StatusMessage}"
                        Foreground="{Binding StatusColor}"
                        Margin="0,6,0,0" TextWrapping="Wrap"/>
-            <TextBlock x:Name="SeedLink"
-                       Text="{Binding SeedPermalink}"
+            <TextBlock Text="{Binding SeedPermalink}"
                        Foreground="{StaticResource AccentBrush}"
                        TextDecorations="Underline" Cursor="Hand"
                        Visibility="{Binding HasSeedLink, Converter={StaticResource BoolToVis}}"
