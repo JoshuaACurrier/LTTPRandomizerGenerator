@@ -9,6 +9,7 @@ object PresetManager {
     private const val PREFS_NAME = "lttp_randomizer_prefs"
     private const val KEY_PRESETS = "user_presets"
     private const val KEY_LAST_SETTINGS = "last_settings"
+    private const val KEY_LAST_CUSTOMIZATION = "last_customization"
 
     // ── Load ─────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,11 @@ object PresetManager {
     fun loadLastSettings(context: Context): RandomizerSettings {
         val raw = prefs(context).getString(KEY_LAST_SETTINGS, null) ?: return RandomizerSettings()
         return try { json.decodeFromString(raw) } catch (_: Exception) { RandomizerSettings() }
+    }
+
+    fun loadCustomization(context: Context): CustomizationSettings {
+        val raw = prefs(context).getString(KEY_LAST_CUSTOMIZATION, null) ?: return CustomizationSettings()
+        return try { json.decodeFromString(raw) } catch (_: Exception) { CustomizationSettings() }
     }
 
     // ── Save ─────────────────────────────────────────────────────────────────
@@ -51,6 +57,10 @@ object PresetManager {
 
     fun saveLastSettings(context: Context, settings: RandomizerSettings) {
         prefs(context).edit().putString(KEY_LAST_SETTINGS, json.encodeToString(settings)).apply()
+    }
+
+    fun saveCustomization(context: Context, c: CustomizationSettings) {
+        prefs(context).edit().putString(KEY_LAST_CUSTOMIZATION, json.encodeToString(c)).apply()
     }
 
     // ── Internal ─────────────────────────────────────────────────────────────
