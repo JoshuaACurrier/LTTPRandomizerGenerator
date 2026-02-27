@@ -1,11 +1,11 @@
-using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace LTTPRandomizerGenerator.Models
 {
     /// <summary>
-    /// Maps directly to the alttpr.com POST /api/randomizer request body.
-    /// Null fields are omitted from serialization (API uses its defaults).
+    /// Maps to the alttpr.com POST /api/randomizer request body.
+    /// Field names match the current PHP controller's $request->input() calls.
+    /// Note: crystals, item, and enemizer are nested JSON objects.
     /// </summary>
     public class RandomizerSettings
     {
@@ -13,7 +13,7 @@ namespace LTTPRandomizerGenerator.Models
         public string Glitches { get; set; } = "none";
 
         [JsonPropertyName("item_placement")]
-        public string ItemPlacement { get; set; } = "advanced";
+        public string ItemPlacement { get; set; } = "basic";
 
         [JsonPropertyName("dungeon_items")]
         public string DungeonItems { get; set; } = "standard";
@@ -24,23 +24,17 @@ namespace LTTPRandomizerGenerator.Models
         [JsonPropertyName("goal")]
         public string Goal { get; set; } = "ganon";
 
-        [JsonPropertyName("tower_open")]
-        public string TowerOpen { get; set; } = "7";
+        /// <summary>Crystal requirements (nested: crystals.tower / crystals.ganon)</summary>
+        [JsonPropertyName("crystals")]
+        public CrystalsSettings Crystals { get; set; } = new();
 
-        [JsonPropertyName("ganon_open")]
-        public string GanonOpen { get; set; } = "7";
+        /// <summary>World state / game mode. Was "world_state" in older API versions.</summary>
+        [JsonPropertyName("mode")]
+        public string Mode { get; set; } = "open";
 
-        [JsonPropertyName("world_state")]
-        public string WorldState { get; set; } = "open";
-
-        [JsonPropertyName("entrance_shuffle")]
-        public string EntranceShuffle { get; set; } = "none";
-
-        [JsonPropertyName("boss_shuffle")]
-        public string BossShuffle { get; set; } = "none";
-
-        [JsonPropertyName("enemy_shuffle")]
-        public string EnemyShuffle { get; set; } = "none";
+        /// <summary>Entrance shuffle. Was "entrance_shuffle" in older API versions.</summary>
+        [JsonPropertyName("entrances")]
+        public string Entrances { get; set; } = "none";
 
         [JsonPropertyName("hints")]
         public string Hints { get; set; } = "on";
@@ -48,28 +42,69 @@ namespace LTTPRandomizerGenerator.Models
         [JsonPropertyName("weapons")]
         public string Weapons { get; set; } = "randomized";
 
-        [JsonPropertyName("item_pool")]
-        public string ItemPool { get; set; } = "normal";
-
-        [JsonPropertyName("item_functionality")]
-        public string ItemFunctionality { get; set; } = "normal";
+        /// <summary>Item pool and functionality (nested: item.pool / item.functionality)</summary>
+        [JsonPropertyName("item")]
+        public ItemSettings Item { get; set; } = new();
 
         [JsonPropertyName("spoilers")]
         public string Spoilers { get; set; } = "on";
 
         /// <summary>
-        /// Starting equipment. Use ["PegasusBoots"] to start with boots, or empty list for none.
+        /// Start with Pegasus Boots. Was "eq": ["PegasusBoots"] in older API versions.
         /// </summary>
-        [JsonPropertyName("eq")]
-        public List<string> StartingEquipment { get; set; } = new();
+        [JsonPropertyName("pseudoboots")]
+        public bool Pseudoboots { get; set; } = false;
+
+        /// <summary>Enemizer settings (nested object)</summary>
+        [JsonPropertyName("enemizer")]
+        public EnemizerSettings Enemizer { get; set; } = new();
 
         [JsonPropertyName("lang")]
         public string Lang { get; set; } = "en";
     }
 
+    public class CrystalsSettings
+    {
+        [JsonPropertyName("tower")]
+        public string Tower { get; set; } = "7";
+
+        [JsonPropertyName("ganon")]
+        public string Ganon { get; set; } = "7";
+    }
+
+    public class ItemSettings
+    {
+        [JsonPropertyName("pool")]
+        public string Pool { get; set; } = "normal";
+
+        [JsonPropertyName("functionality")]
+        public string Functionality { get; set; } = "normal";
+    }
+
+    public class EnemizerSettings
+    {
+        [JsonPropertyName("boss_shuffle")]
+        public string BossShuffle { get; set; } = "none";
+
+        [JsonPropertyName("enemy_shuffle")]
+        public string EnemyShuffle { get; set; } = "none";
+
+        [JsonPropertyName("enemy_damage")]
+        public string EnemyDamage { get; set; } = "default";
+
+        [JsonPropertyName("enemy_health")]
+        public string EnemyHealth { get; set; } = "default";
+
+        [JsonPropertyName("pot_shuffle")]
+        public string PotShuffle { get; set; } = "off";
+    }
+
     // ── Display option helpers used by the UI ComboBoxes ──────────────────────
 
-    public record DropdownOption(string Display, string ApiValue);
+    public record DropdownOption(string Display, string ApiValue)
+    {
+        public override string ToString() => Display;
+    }
 
     public static class SettingsOptions
     {
@@ -147,6 +182,28 @@ namespace LTTPRandomizerGenerator.Models
             new("None",     "none"),
             new("Shuffled", "shuffled"),
             new("Random",   "random"),
+        ];
+
+        public static readonly DropdownOption[] EnemyDamage =
+        [
+            new("Default",  "default"),
+            new("Half",     "half"),
+            new("Double",   "double"),
+            new("Quad",     "quad"),
+        ];
+
+        public static readonly DropdownOption[] EnemyHealth =
+        [
+            new("Default",  "default"),
+            new("Easy",     "easy"),
+            new("Hard",     "hard"),
+            new("Expert",   "expert"),
+        ];
+
+        public static readonly DropdownOption[] PotShuffle =
+        [
+            new("Off", "off"),
+            new("On",  "on"),
         ];
 
         public static readonly DropdownOption[] Hints =

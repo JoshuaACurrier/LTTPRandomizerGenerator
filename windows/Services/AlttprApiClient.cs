@@ -29,15 +29,18 @@ namespace LTTPRandomizerGenerator.Services
 
         /// <summary>
         /// Posts settings to the API and returns the seed result.
-        /// Returns null on failure and sets errorMessage.
+        /// Follows pyz3r's two-step flow: POST /api/randomizer for seed data,
+        /// then GET /api/h/{hash} to obtain bpsLocation for the base BPS patch.
+        /// The BPS patch contains the English translation and randomizer engine;
+        /// without it, dict patches apply to the raw Japanese ROM (garbled text).
         /// </summary>
         public static async Task<SeedResult?> GenerateAsync(
             RandomizerSettings settings,
             IProgress<string>? progress = null,
             CancellationToken ct = default)
         {
+            // Step 1 — generate the seed
             progress?.Report("Contacting alttpr.com...");
-
             HttpResponseMessage response;
             try
             {
@@ -64,18 +67,31 @@ namespace LTTPRandomizerGenerator.Services
             if (apiResponse is null)
                 throw new InvalidOperationException("API returned empty response.");
 
-            // Download the BPS base patch (optional — some seeds omit it)
+            // Step 2 — fetch bpsLocation from /api/h/{hash} (mirrors pyz3r's get_patch_base())
+            progress?.Report("Fetching patch metadata...");
+            HashInfo? hashInfo;
+            try
+            {
+                hashInfo = await Http.GetFromJsonAsync<HashInfo>($"/api/h/{apiResponse.Hash}", ct);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to fetch patch metadata: {ex.Message}", ex);
+            }
+
+            // Step 3 — download the BPS base patch (English translation + randomizer engine)
             byte[] bpsBytes = Array.Empty<byte>();
-            if (!string.IsNullOrWhiteSpace(apiResponse.BpsLocation))
+            string? bpsLocation = hashInfo?.BpsLocation;
+            if (!string.IsNullOrWhiteSpace(bpsLocation))
             {
                 progress?.Report("Downloading base patch...");
                 try
                 {
-                    bpsBytes = await Http.GetByteArrayAsync(apiResponse.BpsLocation, ct);
+                    bpsBytes = await Http.GetByteArrayAsync(bpsLocation, ct);
                 }
                 catch (Exception ex)
                 {
-                    throw new InvalidOperationException($"Failed to download BPS patch: {ex.Message}", ex);
+                    throw new InvalidOperationException($"Failed to download base patch: {ex.Message}", ex);
                 }
             }
 
@@ -101,9 +117,15 @@ namespace LTTPRandomizerGenerator.Services
 
             [JsonPropertyName("size")]
             public int Size { get; set; } = 2;
+        }
 
+        private class HashInfo
+        {
             [JsonPropertyName("bpsLocation")]
             public string BpsLocation { get; set; } = string.Empty;
+
+            [JsonPropertyName("md5")]
+            public string Md5 { get; set; } = string.Empty;
         }
     }
 

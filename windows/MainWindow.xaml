@@ -82,12 +82,19 @@
 
             <TextBlock Grid.Column="0" Text="Preset:"
                        Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
-            <ComboBox  Grid.Column="1" x:Name="PresetCombo"
-                       Style="{StaticResource DarkComboBox}"
-                       ItemsSource="{Binding AllPresets}"
-                       SelectedItem="{Binding SelectedPreset, Mode=TwoWay}"
-                       DisplayMemberPath="Name"
-                       SelectionChanged="PresetCombo_SelectionChanged"/>
+            <Grid Grid.Column="1">
+                <ComboBox x:Name="PresetCombo"
+                          Style="{StaticResource DarkComboBox}"
+                          ItemsSource="{Binding AllPresets}"
+                          SelectedItem="{Binding SelectedPreset, Mode=TwoWay}"
+                          DisplayMemberPath="Name"
+                          SelectionChanged="PresetCombo_SelectionChanged"/>
+                <TextBlock Text="Unsaved" IsHitTestVisible="False"
+                           VerticalAlignment="Center" Margin="6,0"
+                           FontStyle="Italic"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           Visibility="{Binding IsPresetUnsaved, Converter={StaticResource BoolToVis}}"/>
+            </Grid>
 
             <TextBox   Grid.Column="2" x:Name="PresetNameBox" Width="140" Margin="6,0,0,0"
                        Style="{StaticResource DarkTextBox}"
@@ -104,13 +111,16 @@
         </Grid>
 
         <!-- Settings panel -->
-        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
-            <StackPanel>
-                <TextBlock Text="RANDOMIZER SETTINGS"
-                           Foreground="{StaticResource TextMutedBrush}"
-                           FontSize="11" FontWeight="SemiBold"
-                           Margin="0,0,0,8"/>
+        <StackPanel Grid.Row="4">
+            <TextBlock Text="{Binding SettingsToggleLabel}"
+                       Foreground="{StaticResource TextMutedBrush}"
+                       FontSize="11" FontWeight="SemiBold"
+                       Cursor="Hand"
+                       Margin="0,0,0,8"
+                       MouseLeftButtonUp="ToggleSettings_Click"/>
 
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding IsSettingsExpanded, Converter={StaticResource BoolToVis}}">
                 <ItemsControl ItemsSource="{Binding SettingRows}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -131,8 +141,8 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </StackPanel>
-        </ScrollViewer>
+            </ScrollViewer>
+        </StackPanel>
 
         <!-- Generate button -->
         <Button Grid.Row="5" Content="Generate ROM"

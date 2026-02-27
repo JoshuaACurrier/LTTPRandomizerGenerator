@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using LTTPRandomizerGenerator.Models;
 
 namespace LTTPRandomizerGenerator.Services
@@ -18,6 +19,7 @@ namespace LTTPRandomizerGenerator.Services
 
         private static readonly string PresetsFile = Path.Combine(DataDir, "presets.json");
         private static readonly string LastFile    = Path.Combine(DataDir, "last_settings.json");
+        private static readonly string PathsFile   = Path.Combine(DataDir, "paths.json");
 
         private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
@@ -97,6 +99,33 @@ namespace LTTPRandomizerGenerator.Services
                 File.WriteAllText(LastFile, JsonSerializer.Serialize(settings, JsonOpts));
             }
             catch { /* non-fatal */ }
+        }
+
+        /// <summary>Persists ROM path and output folder for auto-restore on next launch.</summary>
+        public static void SavePaths(string romPath, string outputFolder)
+        {
+            try
+            {
+                Directory.CreateDirectory(DataDir);
+                var obj = new { romPath, outputFolder };
+                File.WriteAllText(PathsFile, JsonSerializer.Serialize(obj, JsonOpts));
+            }
+            catch { /* non-fatal */ }
+        }
+
+        /// <summary>Returns (romPath, outputFolder) saved from the last session, or empty strings.</summary>
+        public static (string RomPath, string OutputFolder) LoadPaths()
+        {
+            if (!File.Exists(PathsFile)) return (string.Empty, string.Empty);
+            try
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(PathsFile));
+                var root = doc.RootElement;
+                string rom    = root.TryGetProperty("romPath",      out var r) ? r.GetString() ?? "" : "";
+                string output = root.TryGetProperty("outputFolder", out var o) ? o.GetString() ?? "" : "";
+                return (rom, output);
+            }
+            catch { return (string.Empty, string.Empty); }
         }
 
         // ── Internal ─────────────────────────────────────────────────────────

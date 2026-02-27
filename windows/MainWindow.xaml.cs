@@ -27,7 +27,14 @@ namespace LTTPRandomizerGenerator
 
             LoadPresets();
             RestoreLastSettings();
+            _initialized = true;
+            TryMatchPreset();
         }
+
+        // ── Preset matching state ─────────────────────────────────────────────
+
+        private bool _suppressPresetApply = false;
+        private bool _initialized = false;
 
         // ── Observable properties ─────────────────────────────────────────────
 
@@ -35,14 +42,14 @@ namespace LTTPRandomizerGenerator
         public string RomPath
         {
             get => _romPath;
-            set { _romPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanGenerate)); }
+            set { _romPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanGenerate)); PresetManager.SavePaths(_romPath, _outputFolder); }
         }
 
         private string _outputFolder = string.Empty;
         public string OutputFolder
         {
             get => _outputFolder;
-            set { _outputFolder = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanGenerate)); }
+            set { _outputFolder = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanGenerate)); PresetManager.SavePaths(_romPath, _outputFolder); }
         }
 
         private bool _isGenerating;
@@ -87,6 +94,15 @@ namespace LTTPRandomizerGenerator
             !string.IsNullOrWhiteSpace(RomPath) &&
             !string.IsNullOrWhiteSpace(OutputFolder);
 
+        private bool _isSettingsExpanded = false;
+        public bool IsSettingsExpanded
+        {
+            get => _isSettingsExpanded;
+            set { _isSettingsExpanded = value; OnPropertyChanged(); OnPropertyChanged(nameof(SettingsToggleLabel)); }
+        }
+
+        public string SettingsToggleLabel => IsSettingsExpanded ? "▲ RANDOMIZER SETTINGS" : "▶ RANDOMIZER SETTINGS";
+
         // ── Preset state ──────────────────────────────────────────────────────
 
         public ObservableCollection<RandomizerPreset> AllPresets { get; } = new();
@@ -95,10 +111,11 @@ namespace LTTPRandomizerGenerator
         public RandomizerPreset? SelectedPreset
         {
             get => _selectedPreset;
-            set { _selectedPreset = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanDeletePreset)); }
+            set { _selectedPreset = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanDeletePreset)); OnPropertyChanged(nameof(IsPresetUnsaved)); }
         }
 
         public bool CanDeletePreset => SelectedPreset is { IsBuiltIn: false };
+        public bool IsPresetUnsaved => SelectedPreset is null;
 
         // ── Settings rows (drives the XAML ItemsControl) ─────────────────────
 
@@ -113,25 +130,26 @@ namespace LTTPRandomizerGenerator
                 string v = row.SelectedOption.ApiValue;
                 switch (row.FieldKey)
                 {
-                    case "glitches":             s.Glitches            = v; break;
-                    case "item_placement":       s.ItemPlacement        = v; break;
-                    case "dungeon_items":        s.DungeonItems         = v; break;
-                    case "accessibility":        s.Accessibility        = v; break;
-                    case "goal":                 s.Goal                 = v; break;
-                    case "tower_open":           s.TowerOpen            = v; break;
-                    case "ganon_open":           s.GanonOpen            = v; break;
-                    case "world_state":          s.WorldState           = v; break;
-                    case "entrance_shuffle":     s.EntranceShuffle      = v; break;
-                    case "boss_shuffle":         s.BossShuffle          = v; break;
-                    case "enemy_shuffle":        s.EnemyShuffle         = v; break;
-                    case "hints":                s.Hints                = v; break;
-                    case "weapons":              s.Weapons              = v; break;
-                    case "item_pool":            s.ItemPool             = v; break;
-                    case "item_functionality":   s.ItemFunctionality    = v; break;
-                    case "spoilers":             s.Spoilers             = v; break;
-                    case "pegasus_boots":
-                        s.StartingEquipment = v == "on" ? ["PegasusBoots"] : [];
-                        break;
+                    case "glitches":             s.Glitches              = v; break;
+                    case "item_placement":       s.ItemPlacement         = v; break;
+                    case "dungeon_items":        s.DungeonItems          = v; break;
+                    case "accessibility":        s.Accessibility         = v; break;
+                    case "goal":                 s.Goal                  = v; break;
+                    case "tower_open":           s.Crystals.Tower        = v; break;
+                    case "ganon_open":           s.Crystals.Ganon        = v; break;
+                    case "world_state":          s.Mode                  = v; break;
+                    case "entrance_shuffle":     s.Entrances             = v; break;
+                    case "boss_shuffle":         s.Enemizer.BossShuffle  = v; break;
+                    case "enemy_shuffle":        s.Enemizer.EnemyShuffle = v; break;
+                    case "enemy_damage":         s.Enemizer.EnemyDamage  = v; break;
+                    case "enemy_health":         s.Enemizer.EnemyHealth  = v; break;
+                    case "pot_shuffle":          s.Enemizer.PotShuffle   = v; break;
+                    case "hints":                s.Hints                 = v; break;
+                    case "weapons":              s.Weapons               = v; break;
+                    case "item_pool":            s.Item.Pool             = v; break;
+                    case "item_functionality":   s.Item.Functionality    = v; break;
+                    case "spoilers":             s.Spoilers              = v; break;
+                    case "pegasus_boots":        s.Pseudoboots           = v == "on"; break;
                 }
             }
             return s;
@@ -144,18 +162,21 @@ namespace LTTPRandomizerGenerator
             SetRow("dungeon_items",      s.DungeonItems);
             SetRow("accessibility",      s.Accessibility);
             SetRow("goal",               s.Goal);
-            SetRow("tower_open",         s.TowerOpen);
-            SetRow("ganon_open",         s.GanonOpen);
-            SetRow("world_state",        s.WorldState);
-            SetRow("entrance_shuffle",   s.EntranceShuffle);
-            SetRow("boss_shuffle",       s.BossShuffle);
-            SetRow("enemy_shuffle",      s.EnemyShuffle);
+            SetRow("tower_open",         s.Crystals.Tower);
+            SetRow("ganon_open",         s.Crystals.Ganon);
+            SetRow("world_state",        s.Mode);
+            SetRow("entrance_shuffle",   s.Entrances);
+            SetRow("boss_shuffle",       s.Enemizer.BossShuffle);
+            SetRow("enemy_shuffle",      s.Enemizer.EnemyShuffle);
+            SetRow("enemy_damage",       s.Enemizer.EnemyDamage);
+            SetRow("enemy_health",       s.Enemizer.EnemyHealth);
+            SetRow("pot_shuffle",        s.Enemizer.PotShuffle);
             SetRow("hints",              s.Hints);
             SetRow("weapons",            s.Weapons);
-            SetRow("item_pool",          s.ItemPool);
-            SetRow("item_functionality", s.ItemFunctionality);
+            SetRow("item_pool",          s.Item.Pool);
+            SetRow("item_functionality", s.Item.Functionality);
             SetRow("spoilers",           s.Spoilers);
-            SetRow("pegasus_boots",      s.StartingEquipment.Contains("PegasusBoots") ? "on" : "off");
+            SetRow("pegasus_boots",      s.Pseudoboots ? "on" : "off");
         }
 
         private void SetRow(string key, string apiValue)
@@ -180,12 +201,32 @@ namespace LTTPRandomizerGenerator
             SettingRows.Add(new("entrance_shuffle",   "Entrance Shuffle",         SettingsOptions.EntranceShuffle));
             SettingRows.Add(new("boss_shuffle",       "Boss Shuffle",             SettingsOptions.BossShuffle));
             SettingRows.Add(new("enemy_shuffle",      "Enemy Shuffle",            SettingsOptions.EnemyShuffle));
+            SettingRows.Add(new("enemy_damage",       "Enemy Damage",             SettingsOptions.EnemyDamage));
+            SettingRows.Add(new("enemy_health",       "Enemy Health",             SettingsOptions.EnemyHealth));
+            SettingRows.Add(new("pot_shuffle",        "Pot Shuffle",              SettingsOptions.PotShuffle));
             SettingRows.Add(new("hints",              "Hints",                    SettingsOptions.Hints));
             SettingRows.Add(new("weapons",            "Weapons",                  SettingsOptions.Weapons));
             SettingRows.Add(new("item_pool",          "Item Pool",                SettingsOptions.ItemPool));
             SettingRows.Add(new("item_functionality", "Item Functionality",       SettingsOptions.ItemFunctionality));
             SettingRows.Add(new("spoilers",           "Spoiler Log",              SettingsOptions.Spoilers));
             SettingRows.Add(new("pegasus_boots",      "Pegasus Boots Start",      SettingsOptions.PegasusBoots));
+
+            foreach (var row in SettingRows)
+                row.PropertyChanged += OnSettingRowChanged;
+        }
+
+        private void OnSettingRowChanged(object? sender, PropertyChangedEventArgs e)
+            => TryMatchPreset();
+
+        private void TryMatchPreset()
+        {
+            if (!_initialized || _suppressPresetApply) return;
+            string currentJson = System.Text.Json.JsonSerializer.Serialize(CurrentSettings());
+            RandomizerPreset? match = AllPresets.FirstOrDefault(p =>
+                System.Text.Json.JsonSerializer.Serialize(p.Settings) == currentJson);
+            _suppressPresetApply = true;
+            SelectedPreset = match;
+            _suppressPresetApply = false;
         }
 
         // ── Initialization ────────────────────────────────────────────────────
@@ -205,6 +246,13 @@ namespace LTTPRandomizerGenerator
         {
             var last = PresetManager.LoadLastSettings();
             ApplySettingsToRows(last);
+
+            var (romPath, outputFolder) = PresetManager.LoadPaths();
+            if (!string.IsNullOrEmpty(romPath))      _romPath      = romPath;
+            if (!string.IsNullOrEmpty(outputFolder)) _outputFolder = outputFolder;
+            OnPropertyChanged(nameof(RomPath));
+            OnPropertyChanged(nameof(OutputFolder));
+            OnPropertyChanged(nameof(CanGenerate));
         }
 
         // ── Event handlers ────────────────────────────────────────────────────
@@ -235,10 +283,15 @@ namespace LTTPRandomizerGenerator
 
         private void PresetCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            if (SelectedPreset is null) return;
+            if (_suppressPresetApply || SelectedPreset is null) return;
+            _suppressPresetApply = true;
             ApplySettingsToRows(SelectedPreset.Settings);
+            _suppressPresetApply = false;
             NewPresetName = SelectedPreset.IsBuiltIn ? string.Empty : SelectedPreset.Name;
         }
+
+        private void ToggleSettings_Click(object sender, MouseButtonEventArgs e)
+            => IsSettingsExpanded = !IsSettingsExpanded;
 
         private void SavePreset_Click(object sender, RoutedEventArgs e)
         {
@@ -248,7 +301,9 @@ namespace LTTPRandomizerGenerator
 
             // Refresh list
             LoadPresets();
+            _suppressPresetApply = true;
             SelectedPreset = AllPresets.FirstOrDefault(p => p.Name == name);
+            _suppressPresetApply = false;
             ShowStatus($"Preset \"{name}\" saved.", isError: false);
         }
 
@@ -277,6 +332,9 @@ namespace LTTPRandomizerGenerator
             {
                 var settings = CurrentSettings();
                 PresetManager.SaveLastSettings(settings);
+
+                string boots = settings.Pseudoboots ? "Boots" : "No Boots";
+                ShowStatus($"Sending: {settings.Mode} | {settings.Goal} | {boots}", isError: false);
 
                 string? romErr = RomValidator.Validate(RomPath, out byte[] romBytes);
                 if (romErr is not null) { ShowStatus(romErr, isError: true); return; }
