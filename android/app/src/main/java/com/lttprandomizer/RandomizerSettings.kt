@@ -4,35 +4,52 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class CrystalsSettings(
+    @SerialName("tower") val tower: String = "7",
+    @SerialName("ganon") val ganon: String = "7",
+)
+
+@Serializable
+data class ItemSettings(
+    @SerialName("pool")          val pool: String          = "normal",
+    @SerialName("functionality") val functionality: String = "normal",
+)
+
+@Serializable
+data class EnemizerSettings(
+    @SerialName("boss_shuffle")  val bossShuffle: String  = "none",
+    @SerialName("enemy_shuffle") val enemyShuffle: String = "none",
+    @SerialName("enemy_damage")  val enemyDamage: String  = "default",
+    @SerialName("enemy_health")  val enemyHealth: String  = "default",
+    @SerialName("pot_shuffle")   val potShuffle: String   = "off",
+)
+
+@Serializable
 data class RandomizerSettings(
-    @SerialName("glitches")           val glitches: String           = "none",
-    @SerialName("item_placement")     val itemPlacement: String      = "advanced",
-    @SerialName("dungeon_items")      val dungeonItems: String       = "standard",
-    @SerialName("accessibility")      val accessibility: String      = "items",
-    @SerialName("goal")               val goal: String               = "ganon",
-    @SerialName("tower_open")         val towerOpen: String          = "7",
-    @SerialName("ganon_open")         val ganonOpen: String          = "7",
-    @SerialName("world_state")        val worldState: String         = "open",
-    @SerialName("entrance_shuffle")   val entranceShuffle: String    = "none",
-    @SerialName("boss_shuffle")       val bossShuffle: String        = "none",
-    @SerialName("enemy_shuffle")      val enemyShuffle: String       = "none",
-    @SerialName("hints")              val hints: String              = "on",
-    @SerialName("weapons")            val weapons: String            = "randomized",
-    @SerialName("item_pool")          val itemPool: String           = "normal",
-    @SerialName("item_functionality") val itemFunctionality: String  = "normal",
-    @SerialName("spoilers")           val spoilers: String           = "on",
-    @SerialName("eq")                 val eq: List<String>           = emptyList(),
-    @SerialName("lang")               val lang: String               = "en",
+    @SerialName("glitches")       val glitches: String           = "none",
+    @SerialName("item_placement") val itemPlacement: String      = "basic",
+    @SerialName("dungeon_items")  val dungeonItems: String       = "standard",
+    @SerialName("accessibility")  val accessibility: String      = "items",
+    @SerialName("goal")           val goal: String               = "ganon",
+    @SerialName("crystals")       val crystals: CrystalsSettings = CrystalsSettings(),
+    @SerialName("mode")           val mode: String               = "open",
+    @SerialName("entrances")      val entrances: String          = "none",
+    @SerialName("hints")          val hints: String              = "on",
+    @SerialName("weapons")        val weapons: String            = "randomized",
+    @SerialName("item")           val item: ItemSettings         = ItemSettings(),
+    @SerialName("spoilers")       val spoilers: String           = "on",
+    @SerialName("pseudoboots")    val pseudoboots: Boolean       = false,
+    @SerialName("enemizer")       val enemizer: EnemizerSettings = EnemizerSettings(),
+    @SerialName("lang")           val lang: String               = "en",
 )
 
 // ── API response model ────────────────────────────────────────────────────────
 
 @Serializable
 data class SeedApiResponse(
-    @SerialName("hash")        val hash: String,
-    @SerialName("patch")       val patch: List<Map<String, List<Int>>> = emptyList(),
-    @SerialName("size")        val size: Int = 2,
-    @SerialName("bpsLocation") val bpsLocation: String = "",
+    @SerialName("hash")  val hash: String,
+    @SerialName("patch") val patch: List<Map<String, List<Int>>> = emptyList(),
+    @SerialName("size")  val size: Int = 2,
 )
 
 // ── Preset ────────────────────────────────────────────────────────────────────
@@ -51,14 +68,15 @@ object BuiltInPresets {
             goal = "fast_ganon", itemPlacement = "basic",
         )),
         RandomizerPreset("Casual Boots", RandomizerSettings(
-            itemPlacement = "basic", eq = listOf("PegasusBoots"),
+            itemPlacement = "basic", pseudoboots = true,
         )),
         RandomizerPreset("Keysanity", RandomizerSettings(
             itemPlacement = "advanced", dungeonItems = "full",
         )),
         RandomizerPreset("All Mix", RandomizerSettings(
             itemPlacement = "advanced", dungeonItems = "full",
-            entranceShuffle = "crossed", bossShuffle = "full", enemyShuffle = "shuffled",
+            entrances = "crossed",
+            enemizer = EnemizerSettings(bossShuffle = "full", enemyShuffle = "shuffled"),
         )),
         RandomizerPreset("Beginner", RandomizerSettings(
             itemPlacement = "basic", accessibility = "locations",
@@ -98,10 +116,10 @@ object SettingsOptions {
         DropdownOption("None",      "none"),
     )
     val goal = listOf(
-        DropdownOption("Defeat Ganon",          "ganon"),
-        DropdownOption("Fast Ganon",            "fast_ganon"),
-        DropdownOption("All Dungeons",          "dungeons"),
-        DropdownOption("Pedestal",              "pedestal"),
+        DropdownOption("Defeat Ganon", "ganon"),
+        DropdownOption("Fast Ganon",   "fast_ganon"),
+        DropdownOption("All Dungeons", "dungeons"),
+        DropdownOption("Pedestal",     "pedestal"),
     )
     val crystalCount = (0..7).map { DropdownOption(it.toString(), it.toString()) }
     val worldState = listOf(
@@ -128,6 +146,22 @@ object SettingsOptions {
         DropdownOption("None",     "none"),
         DropdownOption("Shuffled", "shuffled"),
         DropdownOption("Random",   "random"),
+    )
+    val enemyDamage = listOf(
+        DropdownOption("Default", "default"),
+        DropdownOption("Half",    "half"),
+        DropdownOption("Double",  "double"),
+        DropdownOption("Quad",    "quad"),
+    )
+    val enemyHealth = listOf(
+        DropdownOption("Default", "default"),
+        DropdownOption("Easy",    "easy"),
+        DropdownOption("Hard",    "hard"),
+        DropdownOption("Expert",  "expert"),
+    )
+    val potShuffle = listOf(
+        DropdownOption("Off", "off"),
+        DropdownOption("On",  "on"),
     )
     val hints = listOf(DropdownOption("On", "on"), DropdownOption("Off", "off"))
     val weapons = listOf(

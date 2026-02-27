@@ -13,6 +13,8 @@ import com.lttprandomizer.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -24,6 +26,14 @@ class MainActivity : AppCompatActivity() {
     // All presets = built-ins + user presets (rebuilt on load)
     private val allPresets = mutableListOf<RandomizerPreset>()
     private val settingRows = mutableListOf<SettingRowModel>()
+
+    // Guards against feedback loops when applying settings programmatically
+    private var suppressPresetApply = false
+
+    // Settings panel collapse state (collapsed by default)
+    private var settingsExpanded = false
+
+    private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
 
     // ── File pickers ─────────────────────────────────────────────────────────
 
@@ -57,6 +67,7 @@ class MainActivity : AppCompatActivity() {
         loadPresets()
         restoreLastSettings()
         setupUi()
+        tryMatchPreset()
     }
 
     // ── Setup ─────────────────────────────────────────────────────────────────
@@ -75,6 +86,9 @@ class MainActivity : AppCompatActivity() {
             SettingRowModel("entrance_shuffle",   "Entrance Shuffle",         SettingsOptions.entranceShuffle),
             SettingRowModel("boss_shuffle",       "Boss Shuffle",             SettingsOptions.bossShuffle),
             SettingRowModel("enemy_shuffle",      "Enemy Shuffle",            SettingsOptions.enemyShuffle),
+            SettingRowModel("enemy_damage",       "Enemy Damage",             SettingsOptions.enemyDamage),
+            SettingRowModel("enemy_health",       "Enemy Health",             SettingsOptions.enemyHealth),
+            SettingRowModel("pot_shuffle",        "Pot Shuffle",              SettingsOptions.potShuffle),
             SettingRowModel("hints",              "Hints",                    SettingsOptions.hints),
             SettingRowModel("weapons",            "Weapons",                  SettingsOptions.weapons),
             SettingRowModel("item_pool",          "Item Pool",                SettingsOptions.itemPool),
@@ -89,30 +103,43 @@ class MainActivity : AppCompatActivity() {
         binding.browseRomBtn.setOnClickListener { pickRom.launch(arrayOf("*/*")) }
         binding.browseOutputBtn.setOnClickListener { pickOutput.launch(null) }
 
-        // Settings rows
+        // Settings rows — inflate with saved indices, then attach listeners
+        suppressPresetApply = true
         settingRows.forEach { row ->
             val rowView = layoutInflater.inflate(R.layout.row_setting, binding.settingsContainer, false)
             rowView.findViewById<TextView>(R.id.settingLabel).text = row.label
             val spinner = rowView.findViewById<Spinner>(R.id.settingSpinner)
             spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, row.options)
+            spinner.setSelection(row.selectedIndex, false)
             spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
                     row.selectedIndex = pos
+                    tryMatchPreset()
                 }
                 override fun onNothingSelected(p: AdapterView<*>?) {}
             }
             row.spinnerRef = spinner
             binding.settingsContainer.addView(rowView)
         }
+        suppressPresetApply = false
+
+        // Settings toggle
+        binding.settingsToggle.setOnClickListener {
+            settingsExpanded = !settingsExpanded
+            binding.settingsContainer.visibility = if (settingsExpanded) View.VISIBLE else View.GONE
+            binding.settingsToggle.text = if (settingsExpanded) "▲ RANDOMIZER SETTINGS" else "▶ RANDOMIZER SETTINGS"
+        }
 
         // Preset spinner
         refreshPresetSpinner()
         binding.presetSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                if (suppressPresetApply) return
                 applyPreset(allPresets[pos])
                 val isBuiltIn = pos < BuiltInPresets.all.size
                 binding.presetNameEdit.setText(if (isBuiltIn) "" else allPresets[pos].name)
                 binding.deletePresetBtn.isEnabled = !isBuiltIn
+                binding.unsavedText.visibility = View.GONE
             }
             override fun onNothingSelected(p: AdapterView<*>?) {}
         }
@@ -123,6 +150,7 @@ class MainActivity : AppCompatActivity() {
             if (err != null) showStatus(err, isError = true)
             else {
                 loadPresets()
+                tryMatchPreset()
                 showStatus("Preset \"$name\" saved.", isError = false)
             }
         }
@@ -159,7 +187,9 @@ class MainActivity : AppCompatActivity() {
         allPresets.clear()
         allPresets.addAll(BuiltInPresets.all)
         allPresets.addAll(PresetManager.loadUserPresets(this))
+        suppressPresetApply = true
         refreshPresetSpinner()
+        suppressPresetApply = false
     }
 
     private fun refreshPresetSpinner() {
@@ -169,9 +199,17 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun restoreLastSettings() = applySettings(PresetManager.loadLastSettings(this))
+    private fun restoreLastSettings() {
+        suppressPresetApply = true
+        applySettings(PresetManager.loadLastSettings(this))
+        suppressPresetApply = false
+    }
 
-    private fun applyPreset(preset: RandomizerPreset) = applySettings(preset.settings)
+    private fun applyPreset(preset: RandomizerPreset) {
+        suppressPresetApply = true
+        applySettings(preset.settings)
+        suppressPresetApply = false
+    }
 
     private fun applySettings(s: RandomizerSettings) {
         setRow("glitches",           s.glitches)
@@ -179,18 +217,21 @@ class MainActivity : AppCompatActivity() {
         setRow("dungeon_items",      s.dungeonItems)
         setRow("accessibility",      s.accessibility)
         setRow("goal",               s.goal)
-        setRow("tower_open",         s.towerOpen)
-        setRow("ganon_open",         s.ganonOpen)
-        setRow("world_state",        s.worldState)
-        setRow("entrance_shuffle",   s.entranceShuffle)
-        setRow("boss_shuffle",       s.bossShuffle)
-        setRow("enemy_shuffle",      s.enemyShuffle)
+        setRow("tower_open",         s.crystals.tower)
+        setRow("ganon_open",         s.crystals.ganon)
+        setRow("world_state",        s.mode)
+        setRow("entrance_shuffle",   s.entrances)
+        setRow("boss_shuffle",       s.enemizer.bossShuffle)
+        setRow("enemy_shuffle",      s.enemizer.enemyShuffle)
+        setRow("enemy_damage",       s.enemizer.enemyDamage)
+        setRow("enemy_health",       s.enemizer.enemyHealth)
+        setRow("pot_shuffle",        s.enemizer.potShuffle)
         setRow("hints",              s.hints)
         setRow("weapons",            s.weapons)
-        setRow("item_pool",          s.itemPool)
-        setRow("item_functionality", s.itemFunctionality)
+        setRow("item_pool",          s.item.pool)
+        setRow("item_functionality", s.item.functionality)
         setRow("spoilers",           s.spoilers)
-        setRow("pegasus_boots",      if (s.eq.contains("PegasusBoots")) "on" else "off")
+        setRow("pegasus_boots",      if (s.pseudoboots) "on" else "off")
     }
 
     private fun setRow(key: String, apiValue: String) {
@@ -198,32 +239,52 @@ class MainActivity : AppCompatActivity() {
         val idx = row.options.indexOfFirst { it.apiValue == apiValue }
         if (idx >= 0) {
             row.selectedIndex = idx
-            row.spinnerRef?.setSelection(idx)
+            row.spinnerRef?.setSelection(idx, false)
         }
+    }
+
+    private fun tryMatchPreset() {
+        if (suppressPresetApply) return
+        val currentJson = json.encodeToString(currentSettings())
+        val matchIdx = allPresets.indexOfFirst { json.encodeToString(it.settings) == currentJson }
+        suppressPresetApply = true
+        if (matchIdx >= 0) {
+            binding.presetSpinner.setSelection(matchIdx)
+            binding.unsavedText.visibility = View.GONE
+            val isBuiltIn = matchIdx < BuiltInPresets.all.size
+            binding.presetNameEdit.setText(if (isBuiltIn) "" else allPresets[matchIdx].name)
+            binding.deletePresetBtn.isEnabled = !isBuiltIn
+        } else {
+            binding.unsavedText.visibility = View.VISIBLE
+            binding.deletePresetBtn.isEnabled = false
+        }
+        suppressPresetApply = false
     }
 
     private fun currentSettings(): RandomizerSettings {
         fun v(key: String) = settingRows.firstOrNull { it.key == key }
             ?.let { it.options[it.selectedIndex].apiValue } ?: ""
-        val boots = v("pegasus_boots")
         return RandomizerSettings(
-            glitches          = v("glitches"),
-            itemPlacement     = v("item_placement"),
-            dungeonItems      = v("dungeon_items"),
-            accessibility     = v("accessibility"),
-            goal              = v("goal"),
-            towerOpen         = v("tower_open"),
-            ganonOpen         = v("ganon_open"),
-            worldState        = v("world_state"),
-            entranceShuffle   = v("entrance_shuffle"),
-            bossShuffle       = v("boss_shuffle"),
-            enemyShuffle      = v("enemy_shuffle"),
-            hints             = v("hints"),
-            weapons           = v("weapons"),
-            itemPool          = v("item_pool"),
-            itemFunctionality = v("item_functionality"),
-            spoilers          = v("spoilers"),
-            eq                = if (boots == "on") listOf("PegasusBoots") else emptyList(),
+            glitches      = v("glitches"),
+            itemPlacement = v("item_placement"),
+            dungeonItems  = v("dungeon_items"),
+            accessibility = v("accessibility"),
+            goal          = v("goal"),
+            crystals      = CrystalsSettings(tower = v("tower_open"), ganon = v("ganon_open")),
+            mode          = v("world_state"),
+            entrances     = v("entrance_shuffle"),
+            hints         = v("hints"),
+            weapons       = v("weapons"),
+            item          = ItemSettings(pool = v("item_pool"), functionality = v("item_functionality")),
+            spoilers      = v("spoilers"),
+            pseudoboots   = v("pegasus_boots") == "on",
+            enemizer      = EnemizerSettings(
+                bossShuffle  = v("boss_shuffle"),
+                enemyShuffle = v("enemy_shuffle"),
+                enemyDamage  = v("enemy_damage"),
+                enemyHealth  = v("enemy_health"),
+                potShuffle   = v("pot_shuffle"),
+            ),
         )
     }
 
