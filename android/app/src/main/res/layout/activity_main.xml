@@ -102,6 +102,23 @@
         <View android:background="#3A3A55" android:layout_marginVertical="16dp"
             android:layout_width="match_parent" android:layout_height="1dp"/>
 
+        <!-- Customization (dynamically populated) -->
+        <TextView android:id="@+id/customizationToggle"
+            android:text="▶ CUSTOMIZATION"
+            android:textColor="#6C63FF"
+            android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.1"
+            android:layout_marginBottom="8dp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <LinearLayout android:id="@+id/customizationContainer"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginBottom="8dp"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
+        <!-- Divider -->
+        <View android:background="#3A3A55" android:layout_marginVertical="8dp"
+            android:layout_width="match_parent" android:layout_height="1dp"/>
+
         <!-- Settings (dynamically populated) -->
         <TextView android:id="@+id/settingsToggle"
             android:text="▶ RANDOMIZER SETTINGS"

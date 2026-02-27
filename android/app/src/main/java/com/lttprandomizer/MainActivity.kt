@@ -26,12 +26,14 @@ class MainActivity : AppCompatActivity() {
     // All presets = built-ins + user presets (rebuilt on load)
     private val allPresets = mutableListOf<RandomizerPreset>()
     private val settingRows = mutableListOf<SettingRowModel>()
+    private val customizationRows = mutableListOf<SettingRowModel>()
 
     // Guards against feedback loops when applying settings programmatically
     private var suppressPresetApply = false
 
-    // Settings panel collapse state (collapsed by default)
+    // Panel collapse state (collapsed by default)
     private var settingsExpanded = false
+    private var customizationExpanded = false
 
     private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
 
@@ -64,8 +66,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         buildSettingRows()
+        buildCustomizationRows()
         loadPresets()
         restoreLastSettings()
+        restoreCustomization()
         setupUi()
         tryMatchPreset()
     }
@@ -98,6 +102,16 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private fun buildCustomizationRows() {
+        customizationRows.clear()
+        customizationRows += listOf(
+            SettingRowModel("heart_beep_speed", "Heart Beep",  CustomizationOptions.heartBeepSpeed),
+            SettingRowModel("heart_color",      "Heart Color", CustomizationOptions.heartColor),
+            SettingRowModel("menu_speed",       "Menu Speed",  CustomizationOptions.menuSpeed),
+            SettingRowModel("quick_swap",       "Quick Swap",  CustomizationOptions.quickSwap),
+        )
+    }
+
     private fun setupUi() {
         // ROM / output pickers
         binding.browseRomBtn.setOnClickListener { pickRom.launch(arrayOf("*/*")) }
@@ -122,6 +136,30 @@ class MainActivity : AppCompatActivity() {
             binding.settingsContainer.addView(rowView)
         }
         suppressPresetApply = false
+
+        // Customization rows — inflate with saved indices, then attach listeners
+        customizationRows.forEach { row ->
+            val rowView = layoutInflater.inflate(R.layout.row_setting, binding.customizationContainer, false)
+            rowView.findViewById<TextView>(R.id.settingLabel).text = row.label
+            val spinner = rowView.findViewById<Spinner>(R.id.settingSpinner)
+            spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, row.options)
+            spinner.setSelection(row.selectedIndex, false)
+            spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                    row.selectedIndex = pos
+                }
+                override fun onNothingSelected(p: AdapterView<*>?) {}
+            }
+            row.spinnerRef = spinner
+            binding.customizationContainer.addView(rowView)
+        }
+
+        // Customization toggle
+        binding.customizationToggle.setOnClickListener {
+            customizationExpanded = !customizationExpanded
+            binding.customizationContainer.visibility = if (customizationExpanded) View.VISIBLE else View.GONE
+            binding.customizationToggle.text = if (customizationExpanded) "▲ CUSTOMIZATION" else "▶ CUSTOMIZATION"
+        }
 
         // Settings toggle
         binding.settingsToggle.setOnClickListener {
@@ -243,6 +281,34 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun restoreCustomization() {
+        val c = PresetManager.loadCustomization(this)
+        setCustomizationRow("heart_beep_speed", c.heartBeepSpeed)
+        setCustomizationRow("heart_color",      c.heartColor)
+        setCustomizationRow("menu_speed",       c.menuSpeed)
+        setCustomizationRow("quick_swap",       c.quickSwap)
+    }
+
+    private fun setCustomizationRow(key: String, apiValue: String) {
+        val row = customizationRows.firstOrNull { it.key == key } ?: return
+        val idx = row.options.indexOfFirst { it.apiValue == apiValue }
+        if (idx >= 0) {
+            row.selectedIndex = idx
+            row.spinnerRef?.setSelection(idx, false)
+        }
+    }
+
+    private fun currentCustomization(): CustomizationSettings {
+        fun cv(key: String) = customizationRows.firstOrNull { it.key == key }
+            ?.let { it.options[it.selectedIndex].apiValue } ?: ""
+        return CustomizationSettings(
+            heartBeepSpeed = cv("heart_beep_speed"),
+            heartColor     = cv("heart_color"),
+            menuSpeed      = cv("menu_speed"),
+            quickSwap      = cv("quick_swap"),
+        )
+    }
+
     private fun tryMatchPreset() {
         if (suppressPresetApply) return
         val currentJson = json.encodeToString(currentSettings())
@@ -294,8 +360,10 @@ class MainActivity : AppCompatActivity() {
         val rom = romUri ?: return
         val output = outputUri ?: return
         val settings = currentSettings()
+        val customization = currentCustomization()
 
         PresetManager.saveLastSettings(this, settings)
+        PresetManager.saveCustomization(this, customization)
         setGenerating(true)
         lastSeedPermalink = null
         binding.seedLinkText.visibility = View.GONE
@@ -315,6 +383,9 @@ class MainActivity : AppCompatActivity() {
                 val patchedRom = withContext(Dispatchers.IO) {
                     BpsPatcher.apply(romBytes, seed.bpsBytes, seed.dictPatches, seed.sizeMb)
                 }
+
+                showStatus("Applying cosmetics…")
+                withContext(Dispatchers.IO) { CosmeticPatcher.apply(patchedRom, customization) }
 
                 showStatus("Writing output ROM…")
                 withContext(Dispatchers.IO) { writeOutput(output, seed.hash, patchedRom) }
