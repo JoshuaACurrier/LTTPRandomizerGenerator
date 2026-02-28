@@ -40,4 +40,14 @@
     <!-- item_sprite_card.xml -->
     <string name="star_icon">\u2606</string>
     <string name="sprite_card_preview_desc">Sprite preview</string>
+
+    <!-- Sprite browser FABs -->
+    <string name="scroll_to_top">Scroll to top</string>
+    <string name="cancel_action">Cancel</string>
+    <string name="content_desc_cancel">Cancel sprite selection</string>
+    <string name="content_desc_scroll_top">Scroll to top of list</string>
+
+    <!-- ES-DE mode -->
+    <string name="esde_mode_label">ES-DE Mode</string>
+    <string name="esde_mode_hint">Output to lttpr/ subfolder with gamelist.xml</string>
 </resources>

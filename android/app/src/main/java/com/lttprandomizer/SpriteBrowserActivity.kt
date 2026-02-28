@@ -3,14 +3,12 @@ package com.lttprandomizer
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.View
-import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,10 +22,8 @@ class SpriteBrowserActivity : AppCompatActivity() {
     }
 
     private lateinit var spriteGrid: RecyclerView
-    private lateinit var searchBox: EditText
-    private lateinit var spriteCount: TextView
-    private lateinit var loadingSpinner: ProgressBar
-    private lateinit var errorText: TextView
+    private lateinit var scrollToTopFab: FloatingActionButton
+    private lateinit var cancelFab: FloatingActionButton
 
     private lateinit var adapter: SpriteAdapter
     private var favorites = mutableSetOf<String>()
@@ -38,47 +34,50 @@ class SpriteBrowserActivity : AppCompatActivity() {
         setContentView(R.layout.activity_sprite_browser)
 
         spriteGrid     = findViewById(R.id.spriteGrid)
-        searchBox      = findViewById(R.id.searchBox)
-        spriteCount    = findViewById(R.id.spriteCount)
-        loadingSpinner = findViewById(R.id.loadingSpinner)
-        errorText      = findViewById(R.id.errorText)
+        scrollToTopFab = findViewById(R.id.scrollToTopFab)
+        cancelFab      = findViewById(R.id.cancelFab)
 
         favorites = PresetManager.loadFavorites(this)
 
         adapter = SpriteAdapter(
             onSelect = { entry -> selectSprite(entry) },
             onToggleFavorite = { entry -> toggleFavorite(entry) },
+            onSearchChanged = { /* filtering handled inside adapter */ },
+            onRandomAll = { returnResult(SpriteManager.RANDOM_ALL_SENTINEL) },
+            onRandomFav = { returnResult(SpriteManager.RANDOM_FAVORITES_SENTINEL) },
+            onDefaultLink = {
+                val intent = Intent()
+                intent.putExtra(EXTRA_IS_DEFAULT, true)
+                setResult(Activity.RESULT_OK, intent)
+                finish()
+            },
         )
 
-        spriteGrid.layoutManager = GridLayoutManager(this, 4)
+        val layoutManager = GridLayoutManager(this, 4)
+        layoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+            override fun getSpanSize(position: Int): Int =
+                if (position == 0) 4 else 1  // Header spans all columns
+        }
+        spriteGrid.layoutManager = layoutManager
         spriteGrid.adapter = adapter
 
-        searchBox.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) { adapter.filter(s?.toString() ?: "") }
+        // Show/hide scroll-to-top FAB based on scroll position
+        spriteGrid.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                val firstVisible = layoutManager.findFirstVisibleItemPosition()
+                if (firstVisible > 0) {
+                    scrollToTopFab.show()
+                } else {
+                    scrollToTopFab.hide()
+                }
+            }
         })
 
-        // Random All
-        findViewById<Button>(R.id.randomAllBtn).setOnClickListener {
-            returnResult(SpriteManager.RANDOM_ALL_SENTINEL)
+        scrollToTopFab.setOnClickListener {
+            spriteGrid.scrollToPosition(0)
         }
 
-        // Random Favorites
-        findViewById<Button>(R.id.randomFavBtn).setOnClickListener {
-            returnResult(SpriteManager.RANDOM_FAVORITES_SENTINEL)
-        }
-
-        // Default Link
-        findViewById<Button>(R.id.defaultLinkBtn).setOnClickListener {
-            val intent = Intent()
-            intent.putExtra(EXTRA_IS_DEFAULT, true)
-            setResult(Activity.RESULT_OK, intent)
-            finish()
-        }
-
-        // Cancel
-        findViewById<Button>(R.id.cancelBtn).setOnClickListener {
+        cancelFab.setOnClickListener {
             setResult(Activity.RESULT_CANCELED)
             finish()
         }
@@ -87,9 +86,8 @@ class SpriteBrowserActivity : AppCompatActivity() {
     }
 
     private fun loadSprites() {
-        loadingSpinner.visibility = View.VISIBLE
-        errorText.visibility = View.GONE
-        spriteCount.text = "Loading sprites..."
+        adapter.setLoading(true)
+        adapter.setSpriteCount("Loading sprites...")
 
         lifecycleScope.launch {
             try {
@@ -98,29 +96,28 @@ class SpriteBrowserActivity : AppCompatActivity() {
                 }
                 allSprites = sprites
                 adapter.setData(sprites, favorites)
-                spriteCount.text = "${sprites.size} sprites"
-                loadingSpinner.visibility = View.GONE
+                adapter.setSpriteCount("${sprites.size} sprites")
+                adapter.setLoading(false)
             } catch (e: Exception) {
-                loadingSpinner.visibility = View.GONE
-                errorText.visibility = View.VISIBLE
-                errorText.text = "Failed to load sprites:\n${e.message}"
-                spriteCount.text = ""
+                adapter.setLoading(false)
+                adapter.setError("Failed to load sprites:\n${e.message}")
+                adapter.setSpriteCount("")
             }
         }
     }
 
     private fun selectSprite(entry: SpriteEntry) {
         lifecycleScope.launch {
-            loadingSpinner.visibility = View.VISIBLE
-            spriteCount.text = "Downloading ${entry.name}..."
+            adapter.setLoading(true)
+            adapter.setSpriteCount("Downloading ${entry.name}...")
             try {
                 val path = withContext(Dispatchers.IO) {
                     SpriteManager.downloadSprite(this@SpriteBrowserActivity, entry)
                 }
                 returnResult(path, entry.preview)
             } catch (e: Exception) {
-                loadingSpinner.visibility = View.GONE
-                spriteCount.text = "Download failed: ${e.message}"
+                adapter.setLoading(false)
+                adapter.setSpriteCount("Download failed: ${e.message}")
             }
         }
     }

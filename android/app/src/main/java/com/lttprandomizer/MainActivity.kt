@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     private var spritePreviewUrl: String = ""
     private var spriteNameText: TextView? = null
     private var spritePreviewImage: ImageView? = null
+    private var esDeMode = false
 
     // All presets = built-ins + user presets (rebuilt on load)
     private val allPresets = mutableListOf<RandomizerPreset>()
@@ -177,6 +178,13 @@ class MainActivity : AppCompatActivity() {
         // ROM / output pickers
         binding.browseRomBtn.setOnClickListener { pickRom.launch(arrayOf("*/*")) }
         binding.browseOutputBtn.setOnClickListener { pickOutput.launch(null) }
+
+        // ES-DE mode checkbox
+        binding.esDeCheckbox.isChecked = esDeMode
+        binding.esDeCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            esDeMode = isChecked
+            PresetManager.saveEsDeMode(this, isChecked)
+        }
 
         // Settings rows — inflate with saved indices, then attach listeners
         suppressPresetApply = true
@@ -344,6 +352,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun restorePaths() {
+        esDeMode = PresetManager.loadEsDeMode(this)
         val (romStr, outputStr) = PresetManager.loadPaths(this)
         var clearedRom = false
         var clearedOutput = false
@@ -474,7 +483,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 showStatus("Writing output ROM…")
-                withContext(Dispatchers.IO) { writeOutput(output, seed.hash, patchedRom) }
+                withContext(Dispatchers.IO) { writeOutput(output, seed.hash, seed.permalink, patchedRom) }
 
                 lastSeedPermalink = seed.permalink
                 binding.seedLinkText.text = seed.permalink
@@ -488,14 +497,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun writeOutput(treeUri: Uri, hash: String, rom: ByteArray) {
+    private fun writeOutput(treeUri: Uri, hash: String, permalink: String, rom: ByteArray) {
         val docTree = androidx.documentfile.provider.DocumentFile.fromTreeUri(this, treeUri)
             ?: throw IllegalStateException("Cannot access output folder. Please re-select it.")
-        val file = docTree.createFile("application/octet-stream", "lttp_rand_$hash.sfc")
-            ?: throw IllegalStateException("Cannot create output file in selected folder.")
-        val stream = contentResolver.openOutputStream(file.uri)
-            ?: throw IllegalStateException("Cannot open output file for writing.")
-        stream.use { it.write(rom) }
+
+        if (esDeMode) {
+            val lttprDir = EsDeHelper.ensureFolder(docTree)
+            val datetime = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+                .format(java.util.Date())
+            val romFileName = "lttp_rand_${hash}_$datetime.sfc"
+            val file = lttprDir.createFile("application/octet-stream", romFileName)
+                ?: throw IllegalStateException("Cannot create output file in lttpr folder.")
+            val stream = contentResolver.openOutputStream(file.uri)
+                ?: throw IllegalStateException("Cannot open output file for writing.")
+            stream.use { it.write(rom) }
+            EsDeHelper.updateGamelist(contentResolver, lttprDir, romFileName, hash, permalink)
+            EsDeHelper.writeInfoFile(contentResolver, lttprDir)
+        } else {
+            val file = docTree.createFile("application/octet-stream", "lttp_rand_$hash.sfc")
+                ?: throw IllegalStateException("Cannot create output file in selected folder.")
+            val stream = contentResolver.openOutputStream(file.uri)
+                ?: throw IllegalStateException("Cannot open output file for writing.")
+            stream.use { it.write(rom) }
+        }
     }
 
     // ── UI helpers ────────────────────────────────────────────────────────────

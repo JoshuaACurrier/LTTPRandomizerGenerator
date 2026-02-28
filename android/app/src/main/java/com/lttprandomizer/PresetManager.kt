@@ -15,6 +15,7 @@ object PresetManager {
     private const val KEY_SPRITE_FAVORITES = "sprite_favorites"
     private const val KEY_ROM_URI    = "rom_uri"
     private const val KEY_OUTPUT_URI = "output_uri"
+    private const val KEY_ESDE_MODE  = "esde_mode"
 
     /** Set to true if any load operation failed to deserialize saved data. */
     var lastLoadHadError = false
@@ -50,6 +51,13 @@ object PresetManager {
     fun loadPaths(context: Context): Pair<String?, String?> {
         val p = prefs(context)
         return Pair(p.getString(KEY_ROM_URI, null), p.getString(KEY_OUTPUT_URI, null))
+    }
+
+    fun loadEsDeMode(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_ESDE_MODE, false)
+
+    fun saveEsDeMode(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_ESDE_MODE, enabled).apply()
     }
 
     // ── Save ─────────────────────────────────────────────────────────────────
