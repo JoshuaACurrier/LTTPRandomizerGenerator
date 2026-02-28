@@ -463,6 +463,29 @@ namespace LTTPRandomizerGenerator
         private void ToggleSettings_Click(object sender, MouseButtonEventArgs e)
             => IsSettingsExpanded = !IsSettingsExpanded;
 
+        private void SetupEsDe_Click(object sender, RoutedEventArgs e)
+        {
+            string folder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".emulationstation", "custom_systems");
+
+            if (!Directory.Exists(folder))
+            {
+                var result = MessageBox.Show(
+                    $"The folder does not exist:\n{folder}\n\nCreate it?",
+                    "Setup ES-DE", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (result != MessageBoxResult.Yes) return;
+            }
+
+            string? err = EsDeHelper.WriteEsSystems(folder);
+            if (err == "already_configured")
+                ShowStatus("ES-DE is already configured — lttpr system entry found in es_systems.xml.", isError: false);
+            else if (err is not null)
+                ShowStatus(err, isError: true);
+            else
+                ShowStatus($"ES-DE configured! Wrote es_systems.xml to {folder}", isError: false);
+        }
+
         private void SavePreset_Click(object sender, RoutedEventArgs e)
         {
             string name = NewPresetName.Trim();

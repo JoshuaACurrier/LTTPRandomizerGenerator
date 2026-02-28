@@ -66,6 +66,51 @@ object EsDeHelper {
         }
     }
 
+    /**
+     * Writes or appends the lttpr system entry to es_systems.xml in the given folder.
+     * Returns null on success, or a status/error message.
+     */
+    fun writeEsSystems(resolver: ContentResolver, folder: DocumentFile): String? {
+        return try {
+            val existingFile = folder.findFile("es_systems.xml")
+            val existingXml = if (existingFile != null) {
+                resolver.openInputStream(existingFile.uri)?.use { it.bufferedReader().readText() }
+            } else null
+
+            if (existingXml != null && existingXml.contains("<name>lttpr</name>")) {
+                return "already_configured"
+            }
+
+            val systemBlock = """  <system>
+    <name>lttpr</name>
+    <fullname>A Link to the Past Randomizer</fullname>
+    <path>%ROMPATH%/lttpr</path>
+    <extension>.sfc .SFC</extension>
+    <command label="RetroArch (snes9x)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
+    <platform>snes</platform>
+    <theme>snes</theme>
+  </system>"""
+
+            val newXml = if (existingXml != null && existingXml.contains("<systemList>")) {
+                existingXml.replace("</systemList>", "$systemBlock\n</systemList>")
+            } else {
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<systemList>\n$systemBlock\n</systemList>\n"
+            }
+
+            val targetFile = existingFile
+                ?: folder.createFile("text/xml", "es_systems")
+                ?: return "Cannot create es_systems.xml in selected folder."
+
+            resolver.openOutputStream(targetFile.uri, "wt")?.use { out ->
+                out.write(newXml.toByteArray(Charsets.UTF_8))
+            } ?: return "Cannot write to es_systems.xml."
+
+            null
+        } catch (e: Exception) {
+            "Error writing es_systems.xml: ${e.message}"
+        }
+    }
+
     private fun buildGameEntry(romFileName: String, hash: String, permalink: String): String {
         val now = java.text.SimpleDateFormat("yyyyMMdd'T'HHmmss", java.util.Locale.US)
             .format(java.util.Date())

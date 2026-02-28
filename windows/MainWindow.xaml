@@ -70,11 +70,16 @@
                        Style="{StaticResource DarkButton}"
                        Click="BrowseOutput_Click"/>
 
-            <CheckBox  Grid.Row="4" Grid.Column="1"
-                       Content="ES-DE Mode (output to lttpr\ subfolder with gamelist.xml)"
-                       IsChecked="{Binding IsEsDeMode, Mode=TwoWay}"
-                       Foreground="{StaticResource TextMutedBrush}"
-                       FontSize="11"/>
+            <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
+                <CheckBox Content="ES-DE Mode (output to lttpr\ subfolder with gamelist.xml)"
+                          IsChecked="{Binding IsEsDeMode, Mode=TwoWay}"
+                          Foreground="{StaticResource TextMutedBrush}"
+                          FontSize="11" VerticalAlignment="Center"/>
+                <Button Content="Setup ES-DE" Margin="12,0,0,0"
+                        Style="{StaticResource DarkButton}" FontSize="11"
+                        Visibility="{Binding IsEsDeMode, Converter={StaticResource BoolToVis}}"
+                        Click="SetupEsDe_Click"/>
+            </StackPanel>
         </Grid>
 
         <Separator Grid.Row="2" Margin="0,10"/>

@@ -67,6 +67,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val pickEsDeDir = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            val docTree = androidx.documentfile.provider.DocumentFile.fromTreeUri(this, uri)
+            if (docTree != null) {
+                val err = EsDeHelper.writeEsSystems(contentResolver, docTree)
+                when (err) {
+                    null -> Toast.makeText(this, getString(R.string.esde_setup_success), Toast.LENGTH_LONG).show()
+                    "already_configured" -> Toast.makeText(this, getString(R.string.esde_setup_exists), Toast.LENGTH_LONG).show()
+                    else -> Toast.makeText(this, err, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
     private val pickSprite = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
             val data = result.data ?: return@registerForActivityResult
@@ -179,11 +193,17 @@ class MainActivity : AppCompatActivity() {
         binding.browseRomBtn.setOnClickListener { pickRom.launch(arrayOf("*/*")) }
         binding.browseOutputBtn.setOnClickListener { pickOutput.launch(null) }
 
-        // ES-DE mode checkbox
+        // ES-DE mode checkbox + setup button
         binding.esDeCheckbox.isChecked = esDeMode
+        binding.esDeSetupBtn.visibility = if (esDeMode) View.VISIBLE else View.GONE
         binding.esDeCheckbox.setOnCheckedChangeListener { _, isChecked ->
             esDeMode = isChecked
+            binding.esDeSetupBtn.visibility = if (isChecked) View.VISIBLE else View.GONE
             PresetManager.saveEsDeMode(this, isChecked)
+        }
+        binding.esDeSetupBtn.setOnClickListener {
+            Toast.makeText(this, getString(R.string.esde_setup_hint), Toast.LENGTH_SHORT).show()
+            pickEsDeDir.launch(null)
         }
 
         // Settings rows — inflate with saved indices, then attach listeners
