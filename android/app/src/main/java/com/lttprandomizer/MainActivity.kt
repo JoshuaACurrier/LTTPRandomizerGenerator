@@ -29,7 +29,7 @@ class MainActivity : AppCompatActivity() {
     private var spritePreviewUrl: String = ""
     private var spriteNameText: TextView? = null
     private var spritePreviewImage: ImageView? = null
-    private var esDeMode = false
+    private val lttprSubfolder = "lttpr"
 
     // All presets = built-ins + user presets (rebuilt on load)
     private val allPresets = mutableListOf<RandomizerPreset>()
@@ -64,20 +64,6 @@ class MainActivity : AppCompatActivity() {
             binding.outputPathText.text = uri.lastPathSegment ?: uri.toString()
             updateGenerateButton()
             PresetManager.savePaths(this, romUri?.toString(), outputUri?.toString())
-        }
-    }
-
-    private val pickEsDeDir = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) {
-            val docTree = androidx.documentfile.provider.DocumentFile.fromTreeUri(this, uri)
-            if (docTree != null) {
-                val err = EsDeHelper.writeEsSystems(contentResolver, docTree)
-                when (err) {
-                    null -> Toast.makeText(this, getString(R.string.esde_setup_success), Toast.LENGTH_LONG).show()
-                    "already_configured" -> Toast.makeText(this, getString(R.string.esde_setup_exists), Toast.LENGTH_LONG).show()
-                    else -> Toast.makeText(this, err, Toast.LENGTH_LONG).show()
-                }
-            }
         }
     }
 
@@ -192,19 +178,6 @@ class MainActivity : AppCompatActivity() {
         // ROM / output pickers
         binding.browseRomBtn.setOnClickListener { pickRom.launch(arrayOf("*/*")) }
         binding.browseOutputBtn.setOnClickListener { pickOutput.launch(null) }
-
-        // ES-DE mode checkbox + setup button
-        binding.esDeCheckbox.isChecked = esDeMode
-        binding.esDeSetupBtn.visibility = if (esDeMode) View.VISIBLE else View.GONE
-        binding.esDeCheckbox.setOnCheckedChangeListener { _, isChecked ->
-            esDeMode = isChecked
-            binding.esDeSetupBtn.visibility = if (isChecked) View.VISIBLE else View.GONE
-            PresetManager.saveEsDeMode(this, isChecked)
-        }
-        binding.esDeSetupBtn.setOnClickListener {
-            Toast.makeText(this, getString(R.string.esde_setup_hint), Toast.LENGTH_SHORT).show()
-            pickEsDeDir.launch(null)
-        }
 
         // Settings rows — inflate with saved indices, then attach listeners
         suppressPresetApply = true
@@ -372,7 +345,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun restorePaths() {
-        esDeMode = PresetManager.loadEsDeMode(this)
         val (romStr, outputStr) = PresetManager.loadPaths(this)
         var clearedRom = false
         var clearedOutput = false
@@ -521,25 +493,14 @@ class MainActivity : AppCompatActivity() {
         val docTree = androidx.documentfile.provider.DocumentFile.fromTreeUri(this, treeUri)
             ?: throw IllegalStateException("Cannot access output folder. Please re-select it.")
 
-        if (esDeMode) {
-            val lttprDir = EsDeHelper.ensureFolder(docTree)
-            val datetime = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
-                .format(java.util.Date())
-            val romFileName = "lttp_rand_${hash}_$datetime.sfc"
-            val file = lttprDir.createFile("application/octet-stream", romFileName)
-                ?: throw IllegalStateException("Cannot create output file in lttpr folder.")
-            val stream = contentResolver.openOutputStream(file.uri)
-                ?: throw IllegalStateException("Cannot open output file for writing.")
-            stream.use { it.write(rom) }
-            EsDeHelper.updateGamelist(contentResolver, lttprDir, romFileName, hash, permalink)
-            EsDeHelper.writeInfoFile(contentResolver, lttprDir)
-        } else {
-            val file = docTree.createFile("application/octet-stream", "lttp_rand_$hash.sfc")
-                ?: throw IllegalStateException("Cannot create output file in selected folder.")
-            val stream = contentResolver.openOutputStream(file.uri)
-                ?: throw IllegalStateException("Cannot open output file for writing.")
-            stream.use { it.write(rom) }
-        }
+        val lttprDir = docTree.findFile(lttprSubfolder)
+            ?: docTree.createDirectory(lttprSubfolder)
+            ?: throw IllegalStateException("Cannot create $lttprSubfolder subfolder in output folder.")
+        val file = lttprDir.createFile("application/octet-stream", "lttp_rand_$hash.sfc")
+            ?: throw IllegalStateException("Cannot create output file in lttpr folder.")
+        val stream = contentResolver.openOutputStream(file.uri)
+            ?: throw IllegalStateException("Cannot open output file for writing.")
+        stream.use { it.write(rom) }
     }
 
     // ── UI helpers ────────────────────────────────────────────────────────────

@@ -47,11 +47,6 @@
     <string name="content_desc_cancel">Cancel sprite selection</string>
     <string name="content_desc_scroll_top">Scroll to top of list</string>
 
-    <!-- ES-DE mode -->
-    <string name="esde_mode_label">ES-DE Mode</string>
-    <string name="esde_mode_hint">Output to lttpr/ subfolder with gamelist.xml</string>
-    <string name="esde_setup_btn">Setup ES-DE</string>
-    <string name="esde_setup_success">ES-DE configured! Wrote es_systems.xml.</string>
-    <string name="esde_setup_exists">ES-DE is already configured — lttpr system entry found.</string>
-    <string name="esde_setup_hint">Select your ES-DE custom_systems folder</string>
+    <!-- Output hint -->
+    <string name="output_hint">ROMs are saved to a lttpr/ subfolder. Place it in your emulator\'s SNES ROMs directory.</string>
 </resources>

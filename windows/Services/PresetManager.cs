@@ -104,32 +104,31 @@ namespace LTTPRandomizerGenerator.Services
             catch { /* non-fatal */ }
         }
 
-        /// <summary>Persists ROM path, output folder, and ES-DE mode for auto-restore on next launch.</summary>
-        public static void SavePaths(string romPath, string outputFolder, bool isEsDeMode = false)
+        /// <summary>Persists ROM path and output folder for auto-restore on next launch.</summary>
+        public static void SavePaths(string romPath, string outputFolder)
         {
             try
             {
                 Directory.CreateDirectory(DataDir);
-                var obj = new { romPath, outputFolder, isEsDeMode };
+                var obj = new { romPath, outputFolder };
                 File.WriteAllText(PathsFile, JsonSerializer.Serialize(obj, JsonOpts));
             }
             catch { /* non-fatal */ }
         }
 
-        /// <summary>Returns (romPath, outputFolder, isEsDeMode) saved from the last session.</summary>
-        public static (string RomPath, string OutputFolder, bool IsEsDeMode) LoadPaths()
+        /// <summary>Returns (romPath, outputFolder) saved from the last session.</summary>
+        public static (string RomPath, string OutputFolder) LoadPaths()
         {
-            if (!File.Exists(PathsFile)) return (string.Empty, string.Empty, false);
+            if (!File.Exists(PathsFile)) return (string.Empty, string.Empty);
             try
             {
                 using var doc = JsonDocument.Parse(File.ReadAllText(PathsFile));
                 var root = doc.RootElement;
                 string rom    = root.TryGetProperty("romPath",      out var r) ? r.GetString() ?? "" : "";
                 string output = root.TryGetProperty("outputFolder", out var o) ? o.GetString() ?? "" : "";
-                bool esde     = root.TryGetProperty("isEsDeMode",   out var e) && e.GetBoolean();
-                return (rom, output, esde);
+                return (rom, output);
             }
-            catch { LastLoadHadError = true; return (string.Empty, string.Empty, false); }
+            catch { LastLoadHadError = true; return (string.Empty, string.Empty); }
         }
 
         // ── Internal ─────────────────────────────────────────────────────────

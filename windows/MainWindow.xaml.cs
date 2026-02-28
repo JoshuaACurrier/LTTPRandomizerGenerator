@@ -48,14 +48,14 @@ namespace LTTPRandomizerGenerator
         public string RomPath
         {
             get => _romPath;
-            set { _romPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanGenerate)); PresetManager.SavePaths(_romPath, _outputFolder, _isEsDeMode); }
+            set { _romPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanGenerate)); PresetManager.SavePaths(_romPath, _outputFolder); }
         }
 
         private string _outputFolder = string.Empty;
         public string OutputFolder
         {
             get => _outputFolder;
-            set { _outputFolder = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanGenerate)); PresetManager.SavePaths(_romPath, _outputFolder, _isEsDeMode); }
+            set { _outputFolder = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanGenerate)); PresetManager.SavePaths(_romPath, _outputFolder); }
         }
 
         private bool _isGenerating;
@@ -99,13 +99,6 @@ namespace LTTPRandomizerGenerator
             !IsGenerating &&
             !string.IsNullOrWhiteSpace(RomPath) &&
             !string.IsNullOrWhiteSpace(OutputFolder);
-
-        private bool _isEsDeMode;
-        public bool IsEsDeMode
-        {
-            get => _isEsDeMode;
-            set { _isEsDeMode = value; OnPropertyChanged(); PresetManager.SavePaths(_romPath, _outputFolder, _isEsDeMode); }
-        }
 
         private bool _isSettingsExpanded = false;
         public bool IsSettingsExpanded
@@ -371,13 +364,11 @@ namespace LTTPRandomizerGenerator
             var last = PresetManager.LoadLastSettings();
             ApplySettingsToRows(last);
 
-            var (romPath, outputFolder, isEsDeMode) = PresetManager.LoadPaths();
+            var (romPath, outputFolder) = PresetManager.LoadPaths();
             if (!string.IsNullOrEmpty(romPath))      _romPath      = romPath;
             if (!string.IsNullOrEmpty(outputFolder)) _outputFolder = outputFolder;
-            _isEsDeMode = isEsDeMode;
             OnPropertyChanged(nameof(RomPath));
             OnPropertyChanged(nameof(OutputFolder));
-            OnPropertyChanged(nameof(IsEsDeMode));
             OnPropertyChanged(nameof(CanGenerate));
         }
 
@@ -463,29 +454,6 @@ namespace LTTPRandomizerGenerator
         private void ToggleSettings_Click(object sender, MouseButtonEventArgs e)
             => IsSettingsExpanded = !IsSettingsExpanded;
 
-        private void SetupEsDe_Click(object sender, RoutedEventArgs e)
-        {
-            string folder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".emulationstation", "custom_systems");
-
-            if (!Directory.Exists(folder))
-            {
-                var result = MessageBox.Show(
-                    $"The folder does not exist:\n{folder}\n\nCreate it?",
-                    "Setup ES-DE", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (result != MessageBoxResult.Yes) return;
-            }
-
-            string? err = EsDeHelper.WriteEsSystems(folder);
-            if (err == "already_configured")
-                ShowStatus("ES-DE is already configured — lttpr system entry found in es_systems.xml.", isError: false);
-            else if (err is not null)
-                ShowStatus(err, isError: true);
-            else
-                ShowStatus($"ES-DE configured! Wrote es_systems.xml to {folder}", isError: false);
-        }
-
         private void SavePreset_Click(object sender, RoutedEventArgs e)
         {
             string name = NewPresetName.Trim();
@@ -544,22 +512,10 @@ namespace LTTPRandomizerGenerator
                     return CosmeticPatcher.Apply(rom, customization);
                 }, _cts.Token);
 
-                string outFile;
-                if (IsEsDeMode)
-                {
-                    string lttprFolder = EsDeHelper.EnsureFolder(OutputFolder);
-                    string datetime = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    string romFileName = $"lttp_rand_{seed.Hash}_{datetime}.sfc";
-                    outFile = Path.Combine(lttprFolder, romFileName);
-                    await File.WriteAllBytesAsync(outFile, output, _cts.Token);
-                    EsDeHelper.UpdateGamelist(lttprFolder, romFileName, seed.Hash, seed.Permalink);
-                    EsDeHelper.WriteInfoFile(lttprFolder);
-                }
-                else
-                {
-                    outFile = Path.Combine(OutputFolder, $"lttp_rand_{seed.Hash}.sfc");
-                    await File.WriteAllBytesAsync(outFile, output, _cts.Token);
-                }
+                string lttprFolder = Path.Combine(OutputFolder, "lttpr");
+                Directory.CreateDirectory(lttprFolder);
+                string outFile = Path.Combine(lttprFolder, $"lttp_rand_{seed.Hash}.sfc");
+                await File.WriteAllBytesAsync(outFile, output, _cts.Token);
 
                 if (!string.IsNullOrEmpty(SpritePath))
                 {
